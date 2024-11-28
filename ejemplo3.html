@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="v10.2.1/ol/ol.css" type="text/css">
+    <style>
+        #map {
+            height: 500px;
+            width: 75%;
+            float: left;
+        }
+
+        #panel {
+            height: 1080px;
+            width: 25%;
+            float: right;
+            background-color: #EEE;
+        }
+    </style>
+    <title>OpenLayers 10 example</title>
+    <script src="v10.2.1/ol/dist/ol.js" type="text/javascript"></script>
+    <script src="url.js" type="text/javascript"></script>
+</head>
+
+<body>
+
+    <h1>My Map</h1>
+
+    <div id="map"></div>
+
+    <div id="panel">
+        <h3>Capas</h3>
+        <div id="checkboxes"></div>
+        <h3>Referencias</h3>
+        <table id="legendTable">
+            <thead>
+                <tr>
+                    <th>Nombre</th>
+                    <th>Leyenda</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <script type="text/javascript">
+     const layersConfig = [
+    { title: 'Provincias', layerName: 'provincias' },
+    { title: 'Vegetación Cultivos', layerName: 'veg_cultivos' },
+    { title: 'Vegetación Arbórea', layerName: 'veg_arborea' },
+    { title: 'Actividades Agropecuarias', layerName: 'actividades_agropecuarias' },
+    { title: 'Actividades Económicas', layerName: 'actividades_economicas' },
+    { title: 'Complejo de Energía', layerName: 'complejo_de_energia_ene' },
+    { title: 'Curso de Agua', layerName: 'curso_de_agua_hid' },
+    { title: 'Curvas de Nivel', layerName: 'curvas_de_nivel' },
+    { title: 'Edif. Construcciones Turísticas', layerName: 'edif_construcciones_turisticas' },
+    { title: 'Edif. Deportivo y Esparcimiento', layerName: 'edif_depor_y_esparcimiento' },
+    { title: 'Edif. Educación', layerName: 'edif_educacion' },
+    { title: 'Edificio de Salud', layerName: 'edificio_de_salud_ips' },
+    { title: 'Edificio de Seguridad', layerName: 'edificio_de_seguridad_ips' },
+    { title: 'Edificio Público', layerName: 'edificio_publico_ips' },
+    { title: 'Edificios Ferroviarios', layerName: 'edificios_ferroviarios' },
+    { title: 'Edif. Religiosos', layerName: 'edif_religiosos' },
+    { title: 'Espejo de Agua', layerName: 'espejo_de_agua_hid' },
+    { title: 'Estructuras Portuarias', layerName: 'estructuras_portuarias' },
+    { title: 'Infraestructura Aeroportuaria', layerName: 'infraestructura_aeroportuaria_punto' },
+    { title: 'Infraestructura Hidro', layerName: 'infraestructura_hidro' },
+    { title: 'Islas', layerName: 'isla' },
+    { title: 'Límite Político Administrativo', layerName: 'limite_politico_administrativo_lim' },
+    { title: 'Líneas de Conducción Energía', layerName: 'líneas_de_conducción_ene' },
+    { title: 'Localidades', layerName: 'localidades' },
+    { title: 'Marcas y Señales', layerName: 'marcas_y_señales' },
+    { title: 'Muro de Embalse', layerName: 'muro_embalse' },
+    { title: 'Obra de Comunicación', layerName: 'obra_de_comunicación' },
+    { title: 'Obra Portuaria', layerName: 'obra_portuaria' },
+    { title: 'Otras Edificaciones', layerName: 'otras_edificaciones' },
+    { title: 'Puentes', layerName: 'puente_red_vial_puntos' },
+    { title: 'Puntos de Alturas Topográficas', layerName: 'puntos_de_alturas_topograficas' },
+    { title: 'Puntos del Terreno', layerName: 'puntos_del_terreno' },
+    { title: 'Red Ferroviaria', layerName: 'red_ferroviaria' },
+    { title: 'Red Vial', layerName: 'red_vial' },
+    { title: 'Salvado de Obstáculo', layerName: 'salvado_de_obstaculo' },
+    { title: 'Señalizaciones', layerName: 'señalizaciones' },
+    { title: 'Suelo Congelado', layerName: 'sue_congelado' },
+    { title: 'Suelo Consolidado', layerName: 'sue_consolidado' },
+    { title: 'Suelo Costero', layerName: 'sue_costero' },
+    { title: 'Suelo Hidromorfológico', layerName: 'sue_hidromorfologico' },
+    { title: 'Suelo No Consolidado', layerName: 'sue_no_consolidado' },
+    { title: 'Vegetación Arbustiva', layerName: 'veg_arbustiva' },
+    { title: 'Vegetación Hidrófila', layerName: 'veg_hidrofila' },
+    { title: 'Vegetación Suelo Desnudo', layerName: 'veg_suelo_desnudo' },
+    { title: 'Vías Secundarias', layerName: 'vias_secundarias' },
+];
+
+
+        const layers = layersConfig.map(config => {
+            const layer = new ol.layer.Image({
+                title: config.title,
+                visible: false,
+                source: new ol.source.ImageWMS({
+                    url: URL_OGC,
+                    params: { LAYERS: config.layerName }
+                })
+            });
+
+            // Create checkbox
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.id = config.id;
+            checkbox.addEventListener('change', function () {
+                layer.setVisible(this.checked);
+            });
+
+            const label = document.createElement('label');
+            label.htmlFor = config.id;
+            label.textContent = config.title;
+
+            const checkboxContainer = document.getElementById('checkboxes');
+            checkboxContainer.appendChild(checkbox);
+            checkboxContainer.appendChild(label);
+            checkboxContainer.appendChild(document.createElement('br'));
+
+            layer.on('change:visible', function () {
+                checkbox.checked = this.getVisible();
+            });
+            addLegendRow(config);
+
+            return layer;
+        });
+
+        const map = new ol.Map({
+            target: 'map',
+            layers: [
+                new ol.layer.Tile({
+                    title: "Base Map",
+                    source: new ol.source.TileWMS({
+                        url: 'https://wms.ign.gob.ar/geoserver/ows',
+                        params: {
+                            LAYERS: 'capabaseargenmap',
+                            VERSION: '1.1.1'
+                        }
+                    })
+                }),
+                ...layers // Spread operator to add all layers
+            ],
+            view: new ol.View({
+                projection: 'EPSG:4326',
+                center: [-59, -27.5],
+                zoom: 4
+            })
+        });
+        function addLegendRow(config) {
+            const legendUrl = `${URL_OGC}?REQUEST=GetLegendGraphic&SERVICE=WMS&VERSION=1.1.1&FORMAT=image/png&LAYER=${config.layerName}`;
+
+            const tbody = document.querySelector('#legendTable tbody');
+            const row = document.createElement('tr');
+
+            const nameCell = document.createElement('td');
+            nameCell.textContent = config.title;
+            row.appendChild(nameCell);
+
+            const legendCell = document.createElement('td');
+            const img = document.createElement('img');
+            img.src = legendUrl;
+            img.alt = `Leyenda de ${config.title}`;
+            legendCell.appendChild(img);
+            row.appendChild(legendCell);
+
+            tbody.appendChild(row);
+        }
+    </script>
+</body>
+
+</html>
