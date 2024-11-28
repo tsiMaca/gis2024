@@ -1,0 +1,46 @@
+{
+  "name": "gistpi",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@adamscybot/react-leaflet-component-marker": "^2.0.1",
+    "@nextui-org/react": "^2.4.8",
+    "autoprefixer": "10.4.14",
+    "dotenv": "^16.3.1",
+    "framer-motion": "^11.12.0",
+    "leaflet": "^1.9.4",
+    "leaflet-defaulticon-compatibility": "^0.1.2",
+    "leaflet-draw": "^1.0.4",
+    "next": "^14.2.3",
+    "ol": "^4.6.5",
+    "pg": "^8.13.1",
+    "query-string": "^8.1.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-hot-toast": "^2.4.1",
+    "react-hotkeys-hook": "^4.5.1",
+    "react-leaflet": "^4.2.1",
+    "react-leaflet-cluster": "^2.1.0",
+    "react-leaflet-draw": "^0.20.4",
+    "supercluster": "^8.0.1",
+    "tailwind-merge": "^2.2.1",
+    "use-supercluster": "^1.2.0",
+    "ws": "^8.14.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/typography": "^0.5.10",
+    "postcss": "^8.4.39",
+    "prettier": "3.0.3",
+    "tailwindcss": "^3.4.6"
+  },
+  "optionalDependencies": {
+    "bufferutil": "^4.0.7",
+    "utf-8-validate": "^5.0.10"
+  }
+}
