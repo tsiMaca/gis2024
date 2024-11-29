@@ -15,7 +15,10 @@ import View from "ol/view"
 import React, { useEffect, useRef, useState } from "react"
 import useKeyShortcut from "../hooks/useKeyShortcut"
 import SelectionResults from "../components/SelectionResults"
-import AddLayer from "../components/AddLayer"
+import AddLayer from "../components/AddLayer";
+// import ImageWMS from 'ol/source/ImageWMS.js';
+import OSM from 'ol/source/OSM.js';
+// import {Image, Tile} from 'ol/layer.js';
 
 const DragBoxInteraction = new DragBox({
   condition: Conditions.always,
