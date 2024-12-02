@@ -24,13 +24,6 @@ async function query(text, params) {
   }
 }
 
-export async function testConnection() {
-  const text = "SELECT NOW()"
-  return await query(text)
-}
-
-// SELECT * FROM red_vial WHERE st_intersects( ST_geomfromtext('POLYGON((-59.87890625 -26.544189453125004,-59.87890625 -27.071533203125004,-59.263671875 -27.071533203125004,-59.263671875 -26.544189453125004,-59.87890625 -26.544189453125004))',4326), geom )
-
 /**
  * @param {string} layerName
  * @param {string} stringifiedPolygon
@@ -39,4 +32,24 @@ export async function getLayerBounds(layerName, stringifiedPolygon) {
   const text = `SELECT * FROM ${layerName} WHERE ST_Intersects(ST_geomfromtext('POLYGON((${stringifiedPolygon}))',4326), geom)`
   console.log("Query:", text)
   return await query(text)
+}
+
+// EXAMPLE: 'MULTILINESTRING((10 160, 60 120), (120 140, 60 120), (120 140, 180 120))'
+
+/**
+ *
+ * @param {string} layerName
+ * @param {{ nombre: string, detalle: string, autor: string }} data
+ * @param {number[][]} coordinates
+ * @returns
+ */
+export async function addCustomLine(layerName, data, coordinates) {
+  const formatCoordinates =
+    "(" + coordinates.map((coord) => coord.join(" ")).join(",") + ")"
+  const multiline = `'MULTILINESTRING(${formatCoordinates})'`
+  const sql = layerName.startsWith("custom_")
+    ? `INSERT INTO ${layerName} (NOMBRE, DETALLE, AUTOR, GEOM) VALUES ('${data.nombre}', '${data.detalle}', '${data.autor}', ${multiline})`
+    : `INSERT INTO ${layerName} (NOMBRE, FUENTE, RESPONSABL, GEOM) VALUES ('${data.nombre}', 'USER INPUT', '${data.autor}', ${multiline})`
+  console.log("Query:", sql)
+  return await query(sql)
 }
