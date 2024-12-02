@@ -1,32 +1,52 @@
 import {
   Button,
-  Input,
   Modal,
   ModalBody,
   ModalContent,
   ModalFooter,
   ModalHeader
 } from "@nextui-org/react"
-import { useState } from "react"
+import { IconArrowsShuffle, IconClearAll } from "@tabler/icons-react"
+import { Fragment, useEffect, useState } from "react"
 import { alertmessage } from "../utils/alerts"
+import DelayedInput from "./DelayedInput"
+import { randomString } from "../utils/random"
 
 export default function AddFeature({
   isOpen,
   layerName,
   type,
   coordinates,
+  featureList,
   onOpenChange,
   onSuccess
 }) {
-  const [data, setData] = useState({ nombre: "", detalle: "", autor: "" })
   const [loading, setLoading] = useState(false)
+  const [fields, setFields] = useState([])
+
+  useEffect(() => {
+    if (!isOpen || !layerName || !featureList?.length) {
+      setFields([])
+      return
+    }
+    const feature = featureList.find((f) => f.title === layerName)
+    if (!feature) {
+      return
+    }
+    setFields(
+      feature.fields.map(({ name, type }) => ({ name, type, value: "" }))
+    )
+  }, [isOpen, featureList, layerName])
 
   async function submit() {
     setLoading(true)
     try {
       const body = {
         layerName,
-        data,
+        data: fields.reduce((acc, field) => {
+          acc[field.name] = field.value
+          return acc
+        }, {}),
         type,
         coordinates
       }
@@ -50,7 +70,7 @@ export default function AddFeature({
 
   return (
     <>
-      <Modal isOpen={isOpen} onOpenChange={onOpenChange}>
+      <Modal size="2xl" isOpen={isOpen} onOpenChange={onOpenChange}>
         <ModalContent>
           <ModalHeader className="flex flex-col gap-1">
             Agregar nuevo elemento
@@ -58,34 +78,26 @@ export default function AddFeature({
           <ModalBody>
             {coordinates.length > 0 ? (
               <>
-                <div className="grid grid-cols-2 items-center gap-2">
-                  <p className="text-slate-700 text-sm">Nombre</p>
-                  <Input
-                    placeholder="Nombre"
-                    isDisabled={loading}
-                    value={data.nombre}
-                    onChange={(e) =>
-                      setData({ ...data, nombre: e.target.value })
-                    }
-                  />
-                  <p className="text-slate-700 text-sm">Detalle</p>
-                  <Input
-                    placeholder="Detalle"
-                    isDisabled={loading}
-                    value={data.detalle}
-                    onChange={(e) =>
-                      setData({ ...data, detalle: e.target.value })
-                    }
-                  />
-                  <p className="text-slate-700 text-sm">Autor</p>
-                  <Input
-                    placeholder="Autor"
-                    isDisabled={loading}
-                    value={data.autor}
-                    onChange={(e) =>
-                      setData({ ...data, autor: e.target.value })
-                    }
-                  />
+                <div className="grid grid-cols-6 items-center gap-2">
+                  {fields.map((field) => (
+                    <Fragment key={field.name}>
+                      <p className="text-slate-700 text-sm">{field.name}</p>
+                      <DelayedInput
+                        placeholder="..."
+                        isDisabled={loading}
+                        value={field.value}
+                        onChange={(e) =>
+                          setFields((prev) =>
+                            prev.map((f) =>
+                              f.name === field.name
+                                ? { ...f, value: e.target.value }
+                                : f
+                            )
+                          )
+                        }
+                      />
+                    </Fragment>
+                  ))}
                 </div>
               </>
             ) : (
@@ -112,14 +124,34 @@ export default function AddFeature({
                 </Button>
                 <Button
                   className="w-1/2"
+                  color="default"
+                  variant="flat"
+                  isDisabled={loading}
+                  startContent={<IconArrowsShuffle className="w-4 h-4" />}
+                  onPress={() => {
+                    setFields(randomize(fields))
+                  }}
+                >
+                  Random
+                </Button>
+                <Button
+                  className="w-1/2"
+                  color="default"
+                  variant="flat"
+                  isDisabled={loading}
+                  startContent={<IconClearAll className="w-4 h-4" />}
+                  onPress={() => {
+                    setFields(fields.map((field) => ({ ...field, value: "" })))
+                  }}
+                >
+                  Limpiar
+                </Button>
+                <Button
+                  className="w-1/2"
                   color="primary"
                   isDisabled={loading}
                   isLoading={loading}
                   onClick={() => {
-                    if (!data.nombre) {
-                      alertmessage("Completar todos los campos ❌", "error")
-                      return
-                    }
                     submit()
                   }}
                 >
@@ -132,4 +164,19 @@ export default function AddFeature({
       </Modal>
     </>
   )
+}
+
+function randomize(fields) {
+  return fields.map((field) => {
+    if (field.type === "decimal") {
+      return { ...field, value: Math.round(Math.random() * 100) }
+    }
+    if (field.type === "string") {
+      return { ...field, value: randomString(4) }
+    }
+    if (field.type === "boolean") {
+      return { ...field, value: Math.random() > 0.5 }
+    }
+    return field
+  })
 }

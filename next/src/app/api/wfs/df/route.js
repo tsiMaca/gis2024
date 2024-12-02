@@ -58,10 +58,24 @@ function parseQGISFeatureTypes(xmlString) {
         ? geometryTypeMap[geometryElement["@_type"]] || "Unknown"
         : "Unknown"
 
+      // Extraer todos los elementos de la capa
+      const layerFields =
+        type.complexContent?.extension?.sequence?.element
+          ?.filter(
+            (el) => el["@_name"] !== "geometry" && el["@_name"] !== "gid"
+          )
+          .map((el) => ({
+            name: el["@_name"],
+            type: el["@_type"],
+            nillable: el["@_nillable"] || false,
+            minOccurs: el["@_minOccurs"] || 0,
+            maxOccurs: el["@_maxOccurs"] || 1
+          })) || []
+
       features.push({
         title: featureName,
-        type: geometryType
-        // originalType: geometryElement ? geometryElement["@_type"] : "Unknown"
+        type: geometryType,
+        fields: layerFields
       })
     }
   })

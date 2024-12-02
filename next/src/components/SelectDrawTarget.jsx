@@ -14,11 +14,12 @@ import {
 import { useEffect, useState } from "react"
 import { alertmessage } from "../utils/alerts"
 import { TYPE_MULTILINESTRING, TYPE_POINT } from "../constants/geometry-types"
+import { LAYER_FLAGS } from "../data/layers"
 
 export default function SelectDrawTarget({
   isOpen,
   activeLayers,
-  layersGeometries,
+  featureList,
   type,
   onSelect,
   onCancel
@@ -60,19 +61,27 @@ export default function SelectDrawTarget({
               <Listbox
                 aria-label="Capas"
                 disabledKeys={[
-                  _layerNames,
+                  ..._layerNames,
                   "custom_points",
                   "custom_lines"
                 ].filter((layer) => {
-                  const layerGeometry = layersGeometries.find(
+                  const layerGeometry = featureList.find(
                     (geometry) => geometry.title === layer
                   )
-                  return !layerGeometry || layerGeometry.type !== type
+                  const layerFlags = LAYER_FLAGS.find(
+                    (flag) => flag.title === layer
+                  )
+                  return (
+                    !layerFlags?.allowVector || layerGeometry?.type !== type
+                  )
                 })}
                 onAction={(key) => onSelect(key)}
               >
                 {_layerNames.map((layer) => {
-                  const layerGeometry = layersGeometries.find(
+                  const layerFlags = LAYER_FLAGS.find(
+                    (flag) => flag.title === layer
+                  )
+                  const layerGeometry = featureList.find(
                     (geometry) => geometry.title === layer
                   )
                   return (
@@ -81,7 +90,7 @@ export default function SelectDrawTarget({
                       textValue={layer}
                       className="flex items-center gap-4"
                       endContent={
-                        !layerGeometry ? (
+                        !layerFlags.allowVector ? (
                           <>
                             <small className="text-slate-500">
                               Capa raster

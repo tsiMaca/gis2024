@@ -93,10 +93,7 @@ const DrawLineInteraction = new Draw({
 export default function OpenLayersMap() {
   const [layers, setLayers] = useState([])
   const [initializing, setInitializing] = useState(true)
-
-  /*** @type {[LayerGeometry[], React.Dispatch<React.SetStateAction<LayerGeometry[]>>]} */
-  const [layersGeometries, setLayersGeometries] = useState([])
-
+  const [featureList, setFeatureList] = useState([])
   const [map, setMap] = useState(null)
   const [selectionPolygon, setSelectionPolygon] = useState(null)
   const [drawInfo, setDrawInfo] = useState({
@@ -128,7 +125,8 @@ export default function OpenLayersMap() {
     fetch("/api/wfs/df")
       .then((response) => response.json())
       .then((data) => {
-        setLayersGeometries(data)
+        // console.log("Geometrías de capas:", data)
+        setFeatureList(data)
       })
       .catch((error) => {
         console.error("Error al obtener geometrías de capas:", error)
@@ -296,7 +294,7 @@ export default function OpenLayersMap() {
       <AddLayer
         isOpen={modals.addLayer}
         currentLayers={layers}
-        layersGeometries={layersGeometries}
+        featureList={featureList}
         onOpenChange={(isOpen) => setModals({ ...modals, addLayer: isOpen })}
         onAddLayer={agregarCapa}
       />
@@ -304,7 +302,7 @@ export default function OpenLayersMap() {
       <SelectDrawTarget
         isOpen={modals.drawTarget}
         activeLayers={layers}
-        layersGeometries={layersGeometries}
+        featureList={featureList}
         type={drawInfo.type}
         onCancel={() => {
           setModals({ ...modals, drawTarget: false })
@@ -322,6 +320,7 @@ export default function OpenLayersMap() {
         layerName={drawInfo.layerName}
         type={drawInfo.type}
         coordinates={drawInfo.coordinates}
+        featureList={featureList}
         onSuccess={() => {
           const vectorLayer = getLayerByName(map, drawInfo.layerName)
           if (drawInfo.type === TYPE_POINT) {

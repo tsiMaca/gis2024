@@ -28,14 +28,10 @@ import "../types/layer-geometry"
 
 const PAGE_SIZE = 7
 
-/**
- *
- * @param {{isOpen: boolean, currentLayers: string[], layersGeometries: object[], onOpenChange: (open: boolean) => void, onAddLayer: (layer: string) => void}} props
- */
 export default function AddLayer({
   isOpen,
   currentLayers,
-  layersGeometries,
+  featureList,
   onOpenChange,
   onAddLayer
 }) {
@@ -67,11 +63,11 @@ export default function AddLayer({
 
   useEffect(() => {
     setLayers(
-      layersGeometries
+      featureList
         .filter((layer) => !layer.title.startsWith("custom_"))
         .map((layer) => ({ title: layer.title }))
     )
-  }, [layersGeometries])
+  }, [featureList])
 
   useEffect(() => {
     if (search) {
@@ -160,7 +156,7 @@ export default function AddLayer({
                                 const layerFlags = LAYER_FLAGS.find(
                                   (flag) => flag.title === layer.title
                                 )
-                                const layerGeometry = layersGeometries.find(
+                                const layerGeometry = featureList.find(
                                   (geometry) => geometry.title === layer.title
                                 )
                                 return (
