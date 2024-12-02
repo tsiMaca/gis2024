@@ -1,0 +1,48 @@
+Escribe una función de JavaScript usando la librería "fast-xml-parser", que lea el siguiente string XML:
+
+<schema targetNamespace="http://www.qgis.org/gml" elementFormDefault="qualified" version="1.0"
+  xmlns:qgs="http://www.qgis.org/gml" xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+  xmlns:gml="http://www.opengis.net/gml" xmlns:ogc="http://www.opengis.net/ogc"
+  xmlns="http://www.w3.org/2001/XMLSchema">
+  <import schemaLocation="http://schemas.opengis.net/gml/3.1.1/base/gml.xsd"
+    namespace="http://www.opengis.net/gml" />
+  <element substitutionGroup="gml:_Feature" type="qgs:feature1Type" name="feature1" />
+  <complexType name="feature1Type">
+    <complexContent>
+      <extension base="gml:AbstractFeatureType">
+        <sequence>
+          <element minOccurs="0" type="gml:PointPropertyType" name="geometry" maxOccurs="1" />
+          <element type="int" name="gid" />
+          <element nillable="true" type="string" name="row1" />
+          <element nillable="true" type="string" name="row2" />
+        </sequence>
+      </extension>
+    </complexContent>
+  </complexType>
+  ...
+  <element substitutionGroup="gml:_Feature" type="qgs:featureNType" name="featureN" />
+  <complexType name="featureNType">
+    <complexContent>
+      <extension base="gml:AbstractFeatureType">
+        <sequence>
+          <element minOccurs="0" type="gml:MultiCurvePropertyType" name="geometry" maxOccurs="1" />
+          <element type="int" name="gid" />
+          <element nillable="true" type="string" name="row1" />
+          <element nillable="true" type="string" name="row2" />
+        </sequence>
+      </extension>
+    </complexContent>
+  </complexType>
+</schema>
+
+y devuelva un arreglo de objetos con la siguiente estructura:
+
+{
+  "title": "feature1",
+  "type": "Point", // Puede ser Point, MultiLineString, MultiPolygon...
+},
+// ...
+{
+  "title": "featureN",
+  "type": "MultiLineString",
+},

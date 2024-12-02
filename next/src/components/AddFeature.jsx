@@ -10,19 +10,10 @@ import {
 import { useState } from "react"
 import { alertmessage } from "../utils/alerts"
 
-/**
- *
- * @param {{
- *   isOpen: boolean,
- *   layerName: string,
- *   coordinates: number[][],
- *   onOpenChange: (isOpen: boolean) => void,
- *   onSuccess: () => void
- * }} props
- */
 export default function AddFeature({
   isOpen,
   layerName,
+  type,
   coordinates,
   onOpenChange,
   onSuccess
@@ -36,9 +27,10 @@ export default function AddFeature({
       const body = {
         layerName,
         data,
+        type,
         coordinates
       }
-      await fetch("/api/db/addline", {
+      await fetch("/api/db/addfeature", {
         method: "POST",
         body: JSON.stringify(body),
         headers: {
@@ -124,7 +116,7 @@ export default function AddFeature({
                   isDisabled={loading}
                   isLoading={loading}
                   onClick={() => {
-                    if (!data.nombre || !data.detalle || !data.autor) {
+                    if (!data.nombre) {
                       alertmessage("Completar todos los campos ❌", "error")
                       return
                     }

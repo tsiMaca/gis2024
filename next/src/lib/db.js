@@ -34,7 +34,26 @@ export async function getLayerBounds(layerName, stringifiedPolygon) {
   return await query(text)
 }
 
-// EXAMPLE: 'MULTILINESTRING((10 160, 60 120), (120 140, 60 120), (120 140, 180 120))'
+/**
+ *
+ * @param {string} layerName
+ * @param {{ nombre: string, detalle: string, autor: string }} data
+ * @param {number[][]} coordinates
+ * @returns
+ */
+export async function addPointToLayer(layerName, data, coordinates) {
+  const firstPoint = coordinates[0].join(",")
+  const point = `ST_MakePoint(${firstPoint})`
+  const sql = layerName.startsWith("custom_")
+    ? `INSERT INTO ${layerName} (NOMBRE, DETALLE, AUTOR, GEOM) VALUES ('${
+        data.nombre ?? ""
+      }', '${data.detalle ?? ""}', '${data.autor ?? ""}', ${point})`
+    : `INSERT INTO ${layerName} (NOMBRE, FUENTE, RESPONSABL, GEOM) VALUES ('${
+        data.nombre ?? ""
+      }', 'USER INPUT', '${data.autor ?? ""}', ${point})`
+  console.log("Query:", sql)
+  return await query(sql)
+}
 
 /**
  *
@@ -43,13 +62,17 @@ export async function getLayerBounds(layerName, stringifiedPolygon) {
  * @param {number[][]} coordinates
  * @returns
  */
-export async function addCustomLine(layerName, data, coordinates) {
+export async function addLineToLayer(layerName, data, coordinates) {
   const formatCoordinates =
     "(" + coordinates.map((coord) => coord.join(" ")).join(",") + ")"
   const multiline = `'MULTILINESTRING(${formatCoordinates})'`
   const sql = layerName.startsWith("custom_")
-    ? `INSERT INTO ${layerName} (NOMBRE, DETALLE, AUTOR, GEOM) VALUES ('${data.nombre}', '${data.detalle}', '${data.autor}', ${multiline})`
-    : `INSERT INTO ${layerName} (NOMBRE, FUENTE, RESPONSABL, GEOM) VALUES ('${data.nombre}', 'USER INPUT', '${data.autor}', ${multiline})`
+    ? `INSERT INTO ${layerName} (NOMBRE, DETALLE, AUTOR, GEOM) VALUES ('${
+        data.nombre ?? ""
+      }', '${data.detalle ?? ""}', '${data.autor ?? ""}', ${multiline})`
+    : `INSERT INTO ${layerName} (NOMBRE, FUENTE, RESPONSABL, GEOM) VALUES ('${
+        data.nombre ?? ""
+      }', 'USER INPUT', '${data.autor ?? ""}', ${multiline})`
   console.log("Query:", sql)
   return await query(sql)
 }

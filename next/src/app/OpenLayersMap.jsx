@@ -5,6 +5,7 @@ import Conditions from "ol/events/condition"
 import Feature from "ol/feature"
 import GeoJSON from "ol/format/geojson"
 import WFS from "ol/format/wfs"
+import Point from "ol/geom/point"
 import LineString from "ol/geom/linestring"
 import DragBox from "ol/interaction/dragbox"
 import DragPan from "ol/interaction/dragpan"
@@ -31,8 +32,10 @@ import AddLayer from "../components/AddLayer"
 import MapEvents from "../components/MapEvents"
 import SelectDrawTarget from "../components/SelectDrawTarget"
 import SelectionResults from "../components/SelectionResults"
-import useKeyShortcut from "../hooks/useKeyShortcut"
+import { TYPE_MULTILINESTRING, TYPE_POINT } from "../constants/geometry-types"
 import { LAYER_FLAGS } from "../data/layers"
+import useKeyShortcut from "../hooks/useKeyShortcut"
+import "../types/layer-geometry"
 
 const IGNTileWMS = new TileWMS({
   url: "https://wms.ign.gob.ar/geoserver/ows",
@@ -89,10 +92,18 @@ const DrawLineInteraction = new Draw({
 
 export default function OpenLayersMap() {
   const [layers, setLayers] = useState([])
+  const [initializing, setInitializing] = useState(true)
+
+  /*** @type {[LayerGeometry[], React.Dispatch<React.SetStateAction<LayerGeometry[]>>]} */
+  const [layersGeometries, setLayersGeometries] = useState([])
+
   const [map, setMap] = useState(null)
-  const [coordinates, setCoordinates] = useState([])
   const [selectionPolygon, setSelectionPolygon] = useState(null)
-  const [drawLayerName, setDrawLayerName] = useState(null)
+  const [drawInfo, setDrawInfo] = useState({
+    layerName: null,
+    type: null,
+    coordinates: []
+  })
   const [modals, setModals] = useState({
     addLayer: false,
     addFeature: false,
@@ -114,9 +125,20 @@ export default function OpenLayersMap() {
   })
 
   useEffect(() => {
+    fetch("/api/wfs/df")
+      .then((response) => response.json())
+      .then((data) => {
+        setLayersGeometries(data)
+      })
+      .catch((error) => {
+        console.error("Error al obtener geometrías de capas:", error)
+      })
+      .finally(() => setInitializing(false))
+  }, [])
+
+  useEffect(() => {
     const map = new Map({
       target: mapRef.current,
-      // layers: [BaseTileLayer, CustomLinesLayer],
       layers: [BaseTileLayer],
       interactions: [
         new DragPan(),
@@ -146,6 +168,7 @@ export default function OpenLayersMap() {
     if (!map) return
 
     // Agregar las capas de formas del usuario
+    agregarCapa("custom_points")
     agregarCapa("custom_lines")
 
     DragBoxInteraction.on("boxend", (event) => {
@@ -162,7 +185,11 @@ export default function OpenLayersMap() {
       // console.log("Length: ", length)
       const coordinates = geometry.getCoordinates()
       // console.log("Coordinates: ", coordinates)
-      setCoordinates(coordinates)
+      setDrawInfo((current) => ({
+        ...current,
+        type: TYPE_MULTILINESTRING,
+        coordinates
+      }))
       setModals({ ...modals, drawTarget: true })
     })
   }, [map])
@@ -201,7 +228,7 @@ export default function OpenLayersMap() {
   }, [selectionPolygon, layers, map])
 
   function agregarCapa(nombreCapa) {
-    const layerFlags = LAYER_FLAGS.find((layer) => layer.nombre === nombreCapa)
+    const layerFlags = LAYER_FLAGS.find((layer) => layer.title === nombreCapa)
     if (!layerFlags) return
     if (layerFlags.allowVector) {
       agregarCapaVectorial(nombreCapa)
@@ -269,16 +296,22 @@ export default function OpenLayersMap() {
       <AddLayer
         isOpen={modals.addLayer}
         currentLayers={layers}
+        layersGeometries={layersGeometries}
         onOpenChange={(isOpen) => setModals({ ...modals, addLayer: isOpen })}
         onAddLayer={agregarCapa}
       />
 
       <SelectDrawTarget
         isOpen={modals.drawTarget}
-        layerNames={layers.map((layer) => layer.getProperties().title)}
-        onOpenChange={(isOpen) => setModals({ ...modals, drawTarget: isOpen })}
+        activeLayers={layers}
+        layersGeometries={layersGeometries}
+        type={drawInfo.type}
+        onCancel={() => {
+          setModals({ ...modals, drawTarget: false })
+          // setDrawInfo({ layerName: null, type: null, coordinates: [] })
+        }}
         onSelect={(layerName) => {
-          setDrawLayerName(layerName)
+          setDrawInfo({ ...drawInfo, layerName })
           setModals({ ...modals, drawTarget: false, addFeature: true })
         }}
       />
@@ -286,19 +319,25 @@ export default function OpenLayersMap() {
       <AddFeature
         isOpen={modals.addFeature}
         layers={layers}
-        layerName={drawLayerName}
-        coordinates={coordinates}
+        layerName={drawInfo.layerName}
+        type={drawInfo.type}
+        coordinates={drawInfo.coordinates}
         onSuccess={() => {
-          const vectorLayer = getLayerByName(map, drawLayerName)
-          console.log("Draw layer name:", drawLayerName)
-          console.log("Vector layer:", vectorLayer)
-          addLineToLayer(vectorLayer, coordinates)
+          const vectorLayer = getLayerByName(map, drawInfo.layerName)
+          if (drawInfo.type === TYPE_POINT) {
+            console.log(
+              `add to ${drawInfo.layerName} point`,
+              drawInfo.coordinates
+            )
+            addPointToLayer(vectorLayer, drawInfo.coordinates[0])
+          } else if (drawInfo.type === TYPE_MULTILINESTRING) {
+            addLineToLayer(vectorLayer, drawInfo.coordinates)
+          }
         }}
         onOpenChange={(isOpen) => {
           setModals({ ...modals, addFeature: isOpen })
           if (!isOpen) {
-            setCoordinates([])
-            setDrawLayerName(null)
+            setDrawInfo({ layerName: null, type: null, coordinates: [] })
           }
         }}
       />
@@ -316,6 +355,18 @@ export default function OpenLayersMap() {
         <div className="absolute top-0 left-0 z-10 flex justify-center gap-2 w-full py-6">
           <button onClick={() => setModals({ ...modals, addLayer: true })}>
             AGREGAR CAPA
+          </button>
+          <button
+            onClick={() => {
+              const coordinates = [-58.38682204546973, -34.60515438401025]
+              const vectorLayer = getLayerByName(map, "custom_points")
+              if (!vectorLayer) return
+              vectorLayer
+                .getSource()
+                .addFeature(new Feature(new Point(coordinates)))
+            }}
+          >
+            TEST ADD POINT
           </button>
           <button
             onClick={() => {
@@ -375,7 +426,18 @@ export default function OpenLayersMap() {
           map={map}
           onClick={(e) => {
             const [lng, lat] = e.coordinate
-            // console.log("Map clicked", { lat, lng })
+            if (
+              e.originalEvent.ctrlKey &&
+              !e.originalEvent.shiftKey &&
+              !e.originalEvent.altKey
+            ) {
+              setDrawInfo((current) => ({
+                ...current,
+                type: TYPE_POINT,
+                coordinates: [...current.coordinates, [lng, lat]]
+              }))
+              setModals({ ...modals, drawTarget: true })
+            }
           }}
           onContextMenu={(e) => {
             const [lng, lat] = e.coordinate
@@ -406,10 +468,43 @@ function getLayerByName(map, name) {
     .find((layer) => layer.getProperties().title === name)
 }
 
-/**
- *
- * @param {number[]} coordinates
- */
+/** * @param {number[]} coordinates */
+function addPointToLayer(vectorLayer, coordinates) {
+  /*
+  // Crear la geometría del punto
+  const pointGeometry = new Point(coordinates)
+
+  // Crear un estilo para el punto
+  const pointStyle = new Style({
+    image: new CircleStyle({
+      radius: 5,
+      fill: new Fill({
+        color: "#1f7f1d" // Color del punto
+      }),
+      stroke: new Stroke({
+        color: "#fff", // Color del borde del punto
+        width: 2 // Ancho del borde del punto
+      })
+    })
+  })
+
+  // Crear una característica con la geometría
+  const pointFeature = new Feature({
+    geometry: pointGeometry
+  })
+
+  // Aplicar el estilo a la característica
+  // pointFeature.setStyle(pointStyle)
+  vectorLayer.getSource().addFeature(pointFeature)
+  */
+  console.log("addPointToLayer", coordinates)
+  const _pointFeature = new Feature({
+    geometry: new Point(coordinates)
+  })
+  vectorLayer.getSource().addFeature(_pointFeature)
+}
+
+/** * @param {number[]} coordinates */
 function addLineToLayer(vectorLayer, coordinates) {
   // Crear la geometría de la línea
   const lineGeometry = new LineString(coordinates)

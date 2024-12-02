@@ -3,25 +3,39 @@
 import {
   Button,
   Input,
+  Listbox,
+  ListboxItem,
   Modal,
   ModalBody,
   ModalContent,
   ModalFooter,
   ModalHeader,
-  Progress
+  Progress,
+  Snippet,
+  Tooltip
 } from "@nextui-org/react"
 import {
   IconChevronLeft,
   IconChevronRight,
-  IconReload
+  IconVector,
+  IconVectorOff
 } from "@tabler/icons-react"
 import { useEffect, useRef, useState } from "react"
-import { getLayers } from "../services/getlayers"
 import { MAX_LAYERS } from "../constants/layers-limits"
+import { LAYER_FLAGS } from "../data/layers"
+import { getLayers } from "../services/getlayers"
+import "../types/layer-geometry"
 
+const PAGE_SIZE = 7
+
+/**
+ *
+ * @param {{isOpen: boolean, currentLayers: string[], layersGeometries: object[], onOpenChange: (open: boolean) => void, onAddLayer: (layer: string) => void}} props
+ */
 export default function AddLayer({
   isOpen,
   currentLayers,
+  layersGeometries,
   onOpenChange,
   onAddLayer
 }) {
@@ -52,28 +66,18 @@ export default function AddLayer({
   }, [])
 
   useEffect(() => {
-    if (isOpen && layers.length === 0 && currentLayers.length <= MAX_LAYERS) {
-      setLoading(true)
-      getLayers()
-        .then((layerNames) => {
-          // layerNames.forEach((layerName) =>
-          //   console.log("Layer name:", layerName)
-          // )
-          setLayers(
-            layerNames
-              .filter((layerName) => !layerName.startsWith("custom_"))
-              .map((nombre) => ({ nombre }))
-          )
-        })
-        .finally(() => setLoading(false))
-    }
-  }, [isOpen])
+    setLayers(
+      layersGeometries
+        .filter((layer) => !layer.title.startsWith("custom_"))
+        .map((layer) => ({ title: layer.title }))
+    )
+  }, [layersGeometries])
 
   useEffect(() => {
     if (search) {
       setFilteredLayers(
         layers.filter((layer) =>
-          layer.nombre.toLowerCase().includes(search.toLowerCase())
+          layer.title.toLowerCase().includes(search.toLowerCase())
         )
       )
       setPage(1)
@@ -90,7 +94,12 @@ export default function AddLayer({
   }, [isOpen])
 
   return (
-    <Modal className="h-[594px]" isOpen={isOpen} onOpenChange={onOpenChange}>
+    <Modal
+      size="xl"
+      className="h-[630px]"
+      isOpen={isOpen}
+      onOpenChange={onOpenChange}
+    >
       <ModalContent>
         {(onClose) => (
           <>
@@ -126,45 +135,86 @@ export default function AddLayer({
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                           />
-                          <Button
-                            color="primary"
-                            variant="flat"
-                            isIconOnly
-                            startContent={<IconReload className="w-4 h-4" />}
-                            onClick={() => {
-                              setLoading(true)
-                              getLayers()
-                                .then((layerNames) => {
-                                  setLayers(
-                                    layerNames.map((nombre) => ({ nombre }))
-                                  )
-                                })
-                                .finally(() => setLoading(false))
-                            }}
-                          />
                         </div>
-                        <div className="border border-gray-100 rounded-md mb-4 p-2">
-                          {layers
-                            .filter((layer) =>
-                              search
-                                ? layer.nombre
-                                    .toLowerCase()
-                                    .includes(search.toLowerCase())
-                                : true
-                            )
-                            .slice((page - 1) * 10, page * 10)
-                            .map((layer) => (
-                              <button
-                                key={layer.nombre}
-                                className="block rounded-lg text-slate-700 text-sm text-left transition-colors hover:bg-gray-100 active:bg-gray-200 w-full p-2"
-                                onClick={() => {
-                                  onAddLayer(layer.nombre)
-                                  onClose()
-                                }}
-                              >
-                                {layer.nombre}
-                              </button>
-                            ))}
+                        <div className="border border-gray-100 rounded-md mb-4">
+                          <Listbox
+                            aria-label="Layers"
+                            itemClasses={{
+                              base: "px-3 rounded-md gap-3 h-12 data-[hover=true]:bg-default-100/80"
+                            }}
+                            onAction={(key) => {
+                              onAddLayer(key)
+                              onClose()
+                            }}
+                          >
+                            {layers
+                              .filter((layer) =>
+                                search
+                                  ? layer.title
+                                      .toLowerCase()
+                                      .includes(search.toLowerCase())
+                                  : true
+                              )
+                              .slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+                              .map((layer) => {
+                                const layerFlags = LAYER_FLAGS.find(
+                                  (flag) => flag.title === layer.title
+                                )
+                                const layerGeometry = layersGeometries.find(
+                                  (geometry) => geometry.title === layer.title
+                                )
+                                return (
+                                  <ListboxItem
+                                    key={layer.title}
+                                    textValue={layer.title}
+                                    classNames={{ base: "h-auto" }}
+                                    endContent={
+                                      <div className="flex items-center gap-4">
+                                        {layerFlags?.allowVector && (
+                                          <Snippet
+                                            color="default"
+                                            size="sm"
+                                            hideCopyButton
+                                            hideSymbol
+                                          >
+                                            {layerGeometry?.type}
+                                          </Snippet>
+                                        )}
+                                        <Tooltip
+                                          content={
+                                            layerFlags?.allowVector
+                                              ? "Capa vectorial"
+                                              : "Para no ralentizar el mapa, esta capa solo se puede agregar como raster"
+                                          }
+                                        >
+                                          <Button
+                                            color={
+                                              layerFlags.allowVector
+                                                ? "primary"
+                                                : "danger"
+                                            }
+                                            variant="flat"
+                                            size="sm"
+                                            radius="lg"
+                                            isIconOnly
+                                          >
+                                            {layerFlags?.allowVector ? (
+                                              <IconVector className="w-4 h-4" />
+                                            ) : (
+                                              <IconVectorOff className="w-4 h-4" />
+                                            )}
+                                          </Button>
+                                        </Tooltip>
+                                      </div>
+                                    }
+                                  >
+                                    <span className="block text-slate-700 text-xs text-left uppercase w-full">
+                                      {layer.title}
+                                    </span>
+                                  </ListboxItem>
+                                )
+                              })}
+                          </Listbox>
                         </div>
                       </>
                     )}
@@ -174,19 +224,22 @@ export default function AddLayer({
             </ModalBody>
             <ModalFooter className="flex items-center justify-center w-full">
               <Button
+                variant="flat"
                 isDisabled={page === 1}
                 isIconOnly
                 startContent={<IconChevronLeft className="w-4 h-4" />}
                 onClick={() => setPage((current) => current - 1)}
               />
               <Button
-                isDisabled={page * 10 >= layers.length}
+                variant="flat"
+                isDisabled={page * PAGE_SIZE >= layers.length}
                 isIconOnly
                 endContent={<IconChevronRight className="w-4 h-4" />}
                 onClick={() => setPage((current) => current + 1)}
               />
               <p className="text-center text-sm text-slate-700">
-                Página {page} de {Math.ceil(layers.length / 10)}
+                Página {page} de {Math.ceil(layers.length / PAGE_SIZE)} (
+                {layers.length} capas)
               </p>
             </ModalFooter>
           </>

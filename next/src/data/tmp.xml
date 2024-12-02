@@ -1,0 +1,20 @@
+<schema targetNamespace="http://www.qgis.org/gml" elementFormDefault="qualified" version="1.0"
+  xmlns:qgs="http://www.qgis.org/gml" xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+  xmlns:gml="http://www.opengis.net/gml" xmlns:ogc="http://www.opengis.net/ogc"
+  xmlns="http://www.w3.org/2001/XMLSchema">
+  <import schemaLocation="http://schemas.opengis.net/gml/3.1.1/base/gml.xsd"
+    namespace="http://www.opengis.net/gml" />
+  <element substitutionGroup="gml:_Feature" type="qgs:ejidoType" name="ejido" />
+  <complexType name="ejidoType">
+    <complexContent>
+      <extension base="gml:AbstractFeatureType">
+        <sequence>
+          <element minOccurs="0" type="gml:MultiSurfacePropertyType" name="geometry" maxOccurs="1" />
+          <element type="int" name="gid" />
+          <element nillable="true" type="string" name="row1" />
+          <element nillable="true" type="string" name="row2" />
+        </sequence>
+      </extension>
+    </complexContent>
+  </complexType>
+</schema>
