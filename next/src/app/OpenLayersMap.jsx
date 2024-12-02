@@ -15,10 +15,8 @@ import View from "ol/view"
 import React, { useEffect, useRef, useState } from "react"
 import useKeyShortcut from "../hooks/useKeyShortcut"
 import SelectionResults from "../components/SelectionResults"
-import AddLayer from "../components/AddLayer";
-// import ImageWMS from 'ol/source/ImageWMS.js';
-import OSM from 'ol/source/OSM.js';
-// import {Image, Tile} from 'ol/layer.js';
+import AddLayer from "../components/AddLayer"
+import ScaleLine from "ol/control/scaleline"
 
 const DragBoxInteraction = new DragBox({
   condition: Conditions.always,
@@ -64,6 +62,45 @@ export default function OpenLayersMap() {
       })
     })
 
+    // Crear y añadir la escala al mapa
+    const scaleBarControl = new ScaleLine({
+      units: "metric", // Mantén las unidades métricas
+    });
+    
+    // Ajustar la escala para EPSG:4326 (grados a metros)
+    const adjustScale = () => {
+      const view = map.getView();
+      const resolution = view.getResolution(); // Resolución actual
+      const center = view.getCenter(); // Centro del mapa
+      const latitude = center[1]; // Latitud del centro
+
+      // Longitud de 1 grado de longitud en metros, basada en la latitud
+      const metersPerDegree = 111320 * Math.cos((latitude * Math.PI) / 180);
+
+      // Distancia real por pixel en metros
+      const metersPerPixel = resolution * metersPerDegree;
+
+      // Ajustar la escala basada en la resolución y la latitud
+      scaleBarControl.set("minWidth", metersPerPixel * 100); // Escalar la barra
+    };
+
+    map.addControl(scaleBarControl);
+
+    map.on("moveend", adjustScale);
+
+
+    // Estilizar la barra de escala
+    const scaleBarElement = scaleBarControl.element;
+    scaleBarElement.style.position = "absolute";
+    scaleBarElement.style.bottom = "10px";
+    scaleBarElement.style.left = "50%";
+    scaleBarElement.style.transform = "translateX(-50%)";
+    scaleBarElement.style.padding = "5px";
+    scaleBarElement.style.borderRadius = "4px";
+    scaleBarElement.style.fontSize = "12px";
+    scaleBarElement.style.fontWeight = "bold";
+    scaleBarElement.style.color = "#000";
+    
     setMap(map)
 
     return () => {
@@ -165,6 +202,21 @@ export default function OpenLayersMap() {
               </Button>
             )
           })}
+        </div>
+        {/* Leyenda del mapa */}
+        <div className="absolute bottom-4 left-4 z-10 bg-white p-4 rounded shadow-lg">
+          <h4 className="font-bold text-sm mb-2">Leyenda de Capas Activas</h4>
+          {layers.filter((layer) => layer.getProperties().visible).length > 0 ? (
+            layers
+              .filter((layer) => layer.getProperties().visible)
+              .map((layer) => (
+                <p key={layer.getProperties().title} className="text-xs">
+                  {layer.getProperties().title}
+                </p>
+              ))
+          ) : (
+            <p className="text-xs text-gray-500">No hay capas activas</p>
+          )}
         </div>
         <div ref={mapRef} style={{ width: "100%", height: "100%" }} />
       </div>
