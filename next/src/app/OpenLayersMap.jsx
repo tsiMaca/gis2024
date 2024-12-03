@@ -147,6 +147,7 @@ export default function OpenLayersMap() {
   const [featureList, setFeatureList] = useState([])
   const [map, setMap] = useState(null)
   const [selectionPolygon, setSelectionPolygon] = useState(null)
+  const [legendUrls, setLegendUrls] = useState([])
   const [drawInfo, setDrawInfo] = useState({
     layerName: null,
     type: null,
@@ -187,6 +188,36 @@ export default function OpenLayersMap() {
       })
       .finally(() => setInitializing(false))
   }, [])
+
+  // Actualizar las leyendas de las capas
+  useEffect(() => {
+    if (!map || layers.length === 0) return
+
+    const updatedLegends = layers
+      .map((layer) => {
+        const source = layer.getSource()
+
+        if (source instanceof ImageWMS) {
+          const params = source.getParams()
+          const url = source.getUrl() // Obtener la URL base del WMS
+
+          if (!url) return null
+
+          // Construir la URL para la leyenda
+          const legendUrl = `${url}?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetLegendGraphic&FORMAT=image/png&LAYER=${params.LAYERS}&LAYERTITLE=false&TRANSPARENT=true&LAYERFONTSIZE=8&LAYERFONTFAMILY=Arial`
+
+          return {
+            title: layer.getProperties().title,
+            url: legendUrl
+          }
+        }
+        return null
+      })
+      .filter(Boolean)
+
+    console.log("Leyendas actualizadas:", updatedLegends)
+    setLegendUrls(updatedLegends)
+  }, [map, layers])
 
   useEffect(() => {
     const map = new Map({
@@ -249,7 +280,6 @@ export default function OpenLayersMap() {
         const tooltipCoord = geom.getLastCoordinate()
         const length = sphere.getLength(geom)
         const lengthAsKm = Math.round((length / 1000) * 100) / 100 + " " + "km"
-        console.log("Length: ", lengthAsKm)
         measureTooltipElement.innerHTML = lengthAsKm
         measureTooltip.setPosition(tooltipCoord)
       })
@@ -259,7 +289,6 @@ export default function OpenLayersMap() {
       const geometry = event.feature.getGeometry()
       const length = sphere.getLength(geometry)
       const lengthAsKm = Math.round((length / 1000) * 100) / 100 + " " + "km"
-      console.log("Length: ", lengthAsKm)
       const coordinates = geometry.getCoordinates()
       setDrawInfo((current) => ({
         ...current,
@@ -432,120 +461,132 @@ export default function OpenLayersMap() {
         }}
       />
       <div className="relative w-screen h-screen">
-        <div className="absolute top-20 left-0 z-10 flex flex-col justify-start gap-2 w-full max-w-xs px-4 py-6">
-          {showDebugOptions && (
-            <div className="flex gap-2 flex-wrap">
-              <Button
-                color="default"
-                variant="flat"
-                size="sm"
-                onClick={() => setModals({ ...modals, addLayer: true })}
-              >
-                AGREGAR CAPA
-              </Button>
-              <Button
-                color="default"
-                variant="flat"
-                size="sm"
-                onClick={() => {
-                  const coordinates = [-58.38682204546973, -34.60515438401025]
-                  const vectorLayer = getLayerByName(map, "custom_points")
-                  if (!vectorLayer) return
-                  vectorLayer
-                    .getSource()
-                    .addFeature(new Feature(new Point(coordinates)))
-                }}
-              >
-                TEST ADD POINT
-              </Button>
-              <Button
-                color="default"
-                variant="flat"
-                size="sm"
-                onClick={() => {
-                  const mantenerCapasDelUsuario = confirm(
-                    "¿Mantener las capas del usuario?"
-                  )
-                  if (!mantenerCapasDelUsuario) {
-                    setLayers([])
-                  } else {
-                    setLayers((current) =>
-                      current.filter(
-                        (layer) =>
-                          layer === BaseTileLayer ||
-                          layer.getProperties().title.includes("custom_")
-                      )
+        <div className="absolute top-20 left-0 z-10 w-full max-w-xs px-4 py-6">
+          <div className="flex flex-col justify-start gap-2 mb-16">
+            {showDebugOptions && (
+              <div className="flex gap-2 flex-wrap">
+                <Button
+                  color="default"
+                  variant="flat"
+                  size="sm"
+                  onClick={() => setModals({ ...modals, addLayer: true })}
+                >
+                  AGREGAR CAPA
+                </Button>
+                <Button
+                  color="default"
+                  variant="flat"
+                  size="sm"
+                  onClick={() => {
+                    const coordinates = [-58.38682204546973, -34.60515438401025]
+                    const vectorLayer = getLayerByName(map, "custom_points")
+                    if (!vectorLayer) return
+                    vectorLayer
+                      .getSource()
+                      .addFeature(new Feature(new Point(coordinates)))
+                  }}
+                >
+                  TEST ADD POINT
+                </Button>
+                <Button
+                  color="default"
+                  variant="flat"
+                  size="sm"
+                  onClick={() => {
+                    const mantenerCapasDelUsuario = confirm(
+                      "¿Mantener las capas del usuario?"
                     )
-                  }
-                  map
-                    .getLayers()
-                    .getArray()
-                    .forEach((layer) => {
-                      const properties = layer.getProperties()
-                      console.log("Checking layer:", properties.title)
-                      if (
-                        layer !== BaseTileLayer &&
-                        !properties.title.includes("custom_")
-                      ) {
-                        console.log("Removing layer:", properties.title)
-                        map.removeLayer(layer)
-                      } else {
-                        console.log("Keeping layer:", properties.title)
+                    if (!mantenerCapasDelUsuario) {
+                      setLayers([])
+                    } else {
+                      setLayers((current) =>
+                        current.filter(
+                          (layer) =>
+                            layer === BaseTileLayer ||
+                            layer.getProperties().title.includes("custom_")
+                        )
+                      )
+                    }
+                    map
+                      .getLayers()
+                      .getArray()
+                      .forEach((layer) => {
+                        const properties = layer.getProperties()
+                        if (
+                          layer !== BaseTileLayer &&
+                          !properties.title.includes("custom_")
+                        ) {
+                          map.removeLayer(layer)
+                        } else {
+                        }
+                      })
+                  }}
+                >
+                  QUITAR CAPAS
+                </Button>
+                <Button
+                  color="default"
+                  variant="flat"
+                  size="sm"
+                  onClick={() => {
+                    layers.forEach((layer) => {
+                      try {
+                        const properties = layer.getProperties()
+                        const source = layer.getSource()
+                        const features = source.getFeatures()
+                        const { title, visible } = properties
+                      } catch (error) {
+                        console.error("Error al listar capas:", error)
+                        console.error(layer)
                       }
                     })
-                }}
-              >
-                QUITAR CAPAS
-              </Button>
-              <Button
-                color="default"
-                variant="flat"
-                size="sm"
-                onClick={() => {
-                  layers.forEach((layer) => {
-                    try {
-                      const properties = layer.getProperties()
-                      const source = layer.getSource()
-                      const features = source.getFeatures()
-                      const { title, visible } = properties
-                      console.log({ title, visible, properties, features })
-                    } catch (error) {
-                      console.error("Error al listar capas:", error)
-                      console.error(layer)
-                    }
-                  })
-                }}
-              >
-                LIST LAYERS
-              </Button>
-            </div>
+                  }}
+                >
+                  LIST LAYERS
+                </Button>
+              </div>
+            )}
+            {layers.map((layer) => {
+              const properties = layer.getProperties()
+              const { title } = properties
+              const feature = getLayerFeature(featureList, title)
+              return (
+                <LayerButton
+                  key={title}
+                  layer={layer}
+                  feature={feature}
+                  onClick={() => changeVisibility(layer)}
+                  onDelete={(layer) => {
+                    const newLayers = layers.filter(
+                      (_layer) => _layer !== layer
+                    )
+                    setLayers(newLayers)
+                  }}
+                />
+              )
+            })}
+            <Button
+              color="default"
+              variant="flat"
+              size="sm"
+              startContent={<IconPlus className="w-4 h-4" />}
+              onClick={() => setModals({ ...modals, addLayer: true })}
+            >
+              Agregar
+            </Button>
+          </div>
+          {legendUrls.length > 0 && (
+            <section className="bg-white bg-opacity-90 p-4 rounded-md shadow">
+              <p className="text-sm font-medium">
+                Leyendas de las capas no vectoriales
+              </p>
+              {legendUrls.map(({ title, url }) => (
+                <div key={title} className="mb-2">
+                  <img src={url} alt={`Leyenda de ${title}`} />
+                </div>
+              ))}
+            </section>
           )}
-          {layers.map((layer) => {
-            const properties = layer.getProperties()
-            const { title } = properties
-            const feature = getLayerFeature(featureList, title)
-            return (
-              <LayerButton
-                key={title}
-                layer={layer}
-                feature={feature}
-                onClick={() => changeVisibility(layer)}
-                onDelete={(layer) => {
-                  const newLayers = layers.filter((_layer) => _layer !== layer)
-                  setLayers(newLayers)
-                }}
-              />
-            )
-          })}
-          <Button
-            color="default"
-            variant="flat"
-            size="sm"
-            startContent={<IconPlus className="w-4 h-4" />}
-            onClick={() => setModals({ ...modals, addLayer: true })}
-          >
-            Agregar
-          </Button>
         </div>
         <MapEvents
           map={map}
@@ -566,7 +607,6 @@ export default function OpenLayersMap() {
           }}
           onContextMenu={(e) => {
             const [lng, lat] = e.coordinate
-            console.log("Map context menu", { lat, lng })
           }}
         />
         <div ref={mapRef} style={{ width: "100%", height: "100%" }} />

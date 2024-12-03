@@ -13,6 +13,7 @@ import {
   IconPolygon,
   IconQuestionMark
 } from "@tabler/icons-react"
+import { geometryDescription } from "../utils/geometries"
 
 export default function ButtonGeometryType({ type, allowVector, ...props }) {
   const iconColor =
@@ -23,11 +24,12 @@ export default function ButtonGeometryType({ type, allowVector, ...props }) {
       : type === TYPE_MULTIPOLYGON
       ? "secondary"
       : "default"
+  const description = geometryDescription(type)
   return (
     <Tooltip
       content={
         allowVector
-          ? "Capa vectorial"
+          ? description
           : "Para no ralentizar el mapa, esta capa solo se puede agregar como raster"
       }
     >

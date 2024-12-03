@@ -217,25 +217,38 @@ export default function AddLayer({
                 )}
               </>
             </ModalBody>
-            <ModalFooter className="flex items-center justify-center w-full">
-              <Button
-                variant="flat"
-                isDisabled={page === 1}
-                isIconOnly
-                startContent={<IconChevronLeft className="w-4 h-4" />}
-                onClick={() => setPage((current) => current - 1)}
-              />
-              <Button
-                variant="flat"
-                isDisabled={page * PAGE_SIZE >= layers.length}
-                isIconOnly
-                endContent={<IconChevronRight className="w-4 h-4" />}
-                onClick={() => setPage((current) => current + 1)}
-              />
-              <p className="text-center text-sm text-slate-700">
-                Página {page} de {Math.ceil(layers.length / PAGE_SIZE)} (
-                {layers.length} capas)
-              </p>
+            <ModalFooter className="w-full">
+              {currentLayers.length >= MAX_LAYERS ? (
+                <Button
+                  className="w-full"
+                  color="default"
+                  variant="flat"
+                  onPress={onClose}
+                >
+                  Cerrar
+                </Button>
+              ) : (
+                <div className="flex items-center justify-center gap-2 w-full">
+                  <Button
+                    variant="flat"
+                    isDisabled={page === 1}
+                    isIconOnly
+                    startContent={<IconChevronLeft className="w-4 h-4" />}
+                    onClick={() => setPage((current) => current - 1)}
+                  />
+                  <Button
+                    variant="flat"
+                    isDisabled={page * PAGE_SIZE >= layers.length}
+                    isIconOnly
+                    endContent={<IconChevronRight className="w-4 h-4" />}
+                    onClick={() => setPage((current) => current + 1)}
+                  />
+                  <p className="text-center text-sm text-slate-700">
+                    Página {page} de {Math.ceil(layers.length / PAGE_SIZE)} (
+                    {layers.length} capas)
+                  </p>
+                </div>
+              )}
             </ModalFooter>
           </>
         )}

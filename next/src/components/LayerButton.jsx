@@ -13,9 +13,12 @@ import {
   TYPE_UNKNOWN
 } from "../constants/geometry-types"
 import { geometryDescription } from "../utils/geometries"
+import { LAYER_FLAGS } from "../data/layers"
+import ButtonGeometryType from "./ButtonGeometryType"
 
 export default function LayerButton({ layer, feature, onDelete, ...props }) {
   const properties = layer.getProperties()
+  const layerFlags = LAYER_FLAGS.find((flag) => flag.id === properties.flag)
   const { title, visible } = properties
   const { type } = feature
   const typeDescription = geometryDescription(type)
@@ -31,27 +34,7 @@ export default function LayerButton({ layer, feature, onDelete, ...props }) {
       >
         <span className="w-40 truncate">{title}</span>
       </Button>
-      <Tooltip content={typeDescription} placement="top">
-        <Button
-          color="success"
-          variant="flat"
-          size="sm"
-          isIconOnly
-          startContent={
-            type !== TYPE_UNKNOWN ? (
-              <>
-                {type === TYPE_POINT ? (
-                  <IconPoint className="w-3 h-3" />
-                ) : type === TYPE_MULTILINESTRING ? (
-                  <IconLine className="w-3 h-3" />
-                ) : (
-                  <IconPolygon className="w-3 h-3" />
-                )}
-              </>
-            ) : null
-          }
-        />
-      </Tooltip>
+      <ButtonGeometryType type={type} allowVector={layerFlags?.allowVector} />
       <Button
         color="danger"
         variant="faded"
