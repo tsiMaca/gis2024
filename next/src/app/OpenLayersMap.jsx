@@ -11,6 +11,7 @@ import Map from "ol/map"
 import "ol/ol.css"
 import ImageWMS from "ol/source/imagewms"
 import TileWMS from "ol/source/tilewms"
+import ScaleLine from "ol/control/ScaleLine";
 import View from "ol/view"
 import React, { useEffect, useRef, useState } from "react"
 import useKeyShortcut from "../hooks/useKeyShortcut"
@@ -28,6 +29,7 @@ export default function OpenLayersMap() {
   const [selectionPolygon, setSelectionPolygon] = useState(null)
   const [isAddLayerOpen, setIsAddLayerOpen] = useState(false)
   const [isResultsOpen, setIsResultsOpen] = useState(false)
+  const [legendUrls, setLegendUrls] = useState([]);
   const mapRef = useRef()
 
   useKeyShortcut({
@@ -60,6 +62,13 @@ export default function OpenLayersMap() {
         zoom: 4
       })
     })
+    // Crear instancia de ScaleLine
+    const scaleLineControl = new ScaleLine({
+      units: "metric", // Opciones: 'metric', 'imperial', etc.
+    });
+  
+    // Agregar el control al mapa
+    map.addControl(scaleLineControl);
 
     setMap(map)
 
@@ -67,7 +76,7 @@ export default function OpenLayersMap() {
       map.setTarget(null)
     }
   }, [])
-
+   
   useEffect(() => {
     if (!map) return
 
@@ -106,6 +115,42 @@ export default function OpenLayersMap() {
     }
   }, [selectionPolygon, layers, map])
 
+  useEffect(() => {
+    if (map && layers.length > 0) {
+      const updatedLegends = layers
+        .map((layer) => {
+          const source = layer.getSource();
+          
+          if (source instanceof ImageWMS) {
+            const params = source.getParams();
+            const url = source.getUrl(); // Obtener la URL base del WMS
+  
+            if (!url) {
+              console.error(
+                `La fuente de la capa "${layer.getProperties().title}" no tiene una URL válida.`
+              );
+              return null;
+            }
+  
+            // Construir la URL para la leyenda
+            const legendUrl = `${url}?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetLegendGraphic&FORMAT=image/png&LAYER=${params.LAYERS}`;
+            
+            return {
+              title: layer.getProperties().title,
+              url: legendUrl,
+            };
+          }
+  
+          console.warn(`La capa "${layer.getProperties().title}" no es del tipo ImageWMS.`);
+          return null;
+        })
+        .filter(Boolean);
+  
+      setLegendUrls(updatedLegends);
+    }
+  }, [map, layers]);
+  
+
   function agregarCapa(nombreCapa) {
     const layer = new ImageLayer({
       title: nombreCapa,
@@ -126,6 +171,7 @@ export default function OpenLayersMap() {
       ?.setVisible(!layer.getProperties().visible)
     setLayers(newLayers)
   }
+  
 
   return (
     <>
@@ -164,7 +210,22 @@ export default function OpenLayersMap() {
           })}
         </div>
         <div ref={mapRef} style={{ width: "100%", height: "100%" }} />
+        
       </div>
+      <div className="absolute bottom-0 right-0 bg-white p-4 z-10 shadow-lg">
+          <h3 className="font-bold mb-2">Leyendas:</h3>
+          {legendUrls.map(({ title, url }) => (
+            <div key={title} className="mb-2">
+              <p className="text-sm font-semibold">{title}</p>
+              <img
+                src={url}
+                alt={`Leyenda de ${title}`}
+                className="border border-gray-300"
+              />
+            </div>
+          ))}
+        </div>
+      
     </>
   )
 }
