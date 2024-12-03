@@ -10,6 +10,7 @@ import { IconArrowsShuffle, IconClearAll } from "@tabler/icons-react"
 import { Fragment, useEffect, useState } from "react"
 import { alertmessage } from "../utils/alerts"
 import DelayedInput from "./DelayedInput"
+import proj from "ol/proj"
 import { randomString } from "../utils/random"
 
 export default function AddFeature({
@@ -39,6 +40,9 @@ export default function AddFeature({
   }, [isOpen, featureList, layerName])
 
   async function submit() {
+    const coordsAs4326 = coordinates.map((coord) =>
+      proj.transform(coord, "EPSG:3857", "EPSG:4326")
+    )
     setLoading(true)
     try {
       const body = {
@@ -48,7 +52,7 @@ export default function AddFeature({
           return acc
         }, {}),
         type,
-        coordinates
+        coordinates: coordsAs4326
       }
       await fetch("/api/db/addfeature", {
         method: "POST",

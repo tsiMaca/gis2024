@@ -2,23 +2,16 @@
 
 import { useEffect } from "react"
 
-interface Props {
-  key: string
-  ctrl?: boolean
-  alt?: boolean
-  shift?: boolean
-  callback: () => void
-}
-
 function useKeyShortcut({
+  shortcutId,
   key,
   ctrl = false,
   alt = false,
   shift = false,
   callback
-}: Props) {
+}) {
   useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
+    function handleKeyDown(e) {
       if (
         e.key === key &&
         e.ctrlKey === ctrl &&
@@ -36,7 +29,7 @@ function useKeyShortcut({
     return () => {
       window.removeEventListener("keydown", handleKeyDown)
     }
-  }, [key, ctrl, alt, shift, callback])
+  }, [shortcutId, key, ctrl, alt, shift, callback])
 }
 
 export default useKeyShortcut

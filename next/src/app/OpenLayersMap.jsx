@@ -1,12 +1,13 @@
 "use client"
 
 import { Button } from "@nextui-org/react"
+import { IconPlus } from "@tabler/icons-react"
 import Conditions from "ol/events/condition"
 import Feature from "ol/feature"
 import GeoJSON from "ol/format/geojson"
 import WFS from "ol/format/wfs"
-import Point from "ol/geom/point"
 import LineString from "ol/geom/linestring"
+import Point from "ol/geom/point"
 import DragBox from "ol/interaction/dragbox"
 import DragPan from "ol/interaction/dragpan"
 import Draw from "ol/interaction/draw"
@@ -14,11 +15,13 @@ import MouseWheelZoom from "ol/interaction/mousewheelzoom"
 import TileLayer from "ol/layer/Tile"
 import ImageLayer from "ol/layer/image"
 import VectorLayer from "ol/layer/vector"
+import ScaleLine from "ol/control/scaleline"
+import sphere from "ol/sphere"
 import LoadStrategy from "ol/loadingstrategy"
 import Map from "ol/map"
 import "ol/ol.css"
+import proj from "ol/proj"
 import ImageWMS from "ol/source/imagewms"
-import OSM from "ol/source/osm"
 import TileWMS from "ol/source/tilewms"
 import VectorSource from "ol/source/vector"
 import CircleStyle from "ol/style/circle"
@@ -26,16 +29,41 @@ import Fill from "ol/style/fill"
 import Stroke from "ol/style/stroke"
 import Style from "ol/style/style"
 import View from "ol/view"
+import Overlay from "ol/overlay"
+import proj4 from "proj4"
 import React, { useEffect, useRef, useState } from "react"
 import AddFeature from "../components/AddFeature"
 import AddLayer from "../components/AddLayer"
+import LayerButton from "../components/LayerButton"
 import MapEvents from "../components/MapEvents"
 import SelectDrawTarget from "../components/SelectDrawTarget"
 import SelectionResults from "../components/SelectionResults"
 import { TYPE_MULTILINESTRING, TYPE_POINT } from "../constants/geometry-types"
 import { LAYER_FLAGS } from "../data/layers"
 import useKeyShortcut from "../hooks/useKeyShortcut"
-import "../types/layer-geometry"
+import { getLayerFeature } from "../utils/layer-feature"
+
+proj.setProj4(proj4)
+/*
+proj4.defs(
+  "EPSG:22175",
+  "+proj=tmerc +lat_0=0 +lon_0=-60 +k=1 +x_0=5500000 +y_0=0 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs"
+)
+*/
+proj4.defs(
+  "EPSG:22175",
+  "+proj=tmerc +lat_0=-90 +lon_0=-60 +k=1 +x_0=5500000 +y_0=0 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs +type=crs"
+)
+
+if (!proj.get("EPSG:22175")) {
+  console.error("Failed to register projection in OpenLayers")
+}
+const projection = proj.get("EPSG:22175")
+// projection.setExtent([5000000, 5800000, 6000000, 6500000])
+projection.setExtent([4084837.56, 3444524.01, 6263746.78, 7592504.35])
+
+let measureTooltipElement
+let measureTooltip
 
 const IGNTileWMS = new TileWMS({
   url: "https://wms.ign.gob.ar/geoserver/ows",
@@ -47,7 +75,13 @@ const IGNTileWMS = new TileWMS({
 
 const BaseTileLayer = new TileLayer({
   title: "base_map",
-  source: new OSM()
+  /*
+  // source: new OSM()
+  source: new XYZ({
+    url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+  })
+  */
+  source: IGNTileWMS
 })
 
 const CustomLinesLayer = new VectorLayer({
@@ -90,6 +124,23 @@ const DrawLineInteraction = new Draw({
   }
 })
 
+function createMeasureTooltip(map) {
+  if (measureTooltipElement) {
+    measureTooltipElement.remove()
+  }
+  measureTooltipElement = document.createElement("div")
+  measureTooltipElement.className =
+    "relative bg-gray-200 bg-opacity-50 rounded-md shadow text-slate-700 text-xs p-1"
+  measureTooltip = new Overlay({
+    element: measureTooltipElement,
+    offset: [0, -15],
+    positioning: "bottom-center",
+    stopEvent: false,
+    insertFirst: false
+  })
+  map.addOverlay(measureTooltip)
+}
+
 export default function OpenLayersMap() {
   const [layers, setLayers] = useState([])
   const [initializing, setInitializing] = useState(true)
@@ -107,6 +158,7 @@ export default function OpenLayersMap() {
     selectionResults: false,
     drawTarget: false
   })
+  const [showDebugOptions, setShowDebugOptions] = useState(false)
   const mapRef = useRef()
 
   useKeyShortcut({
@@ -116,9 +168,11 @@ export default function OpenLayersMap() {
   })
 
   useKeyShortcut({
-    key: "A",
+    key: "F12",
     shift: true,
-    callback: () => setModals({ ...modals, addFeature: true })
+    ctrl: true,
+    alt: true,
+    callback: () => setShowDebugOptions((current) => !current)
   })
 
   useEffect(() => {
@@ -145,11 +199,16 @@ export default function OpenLayersMap() {
         DrawLineInteraction
       ],
       view: new View({
-        projection: "EPSG:4326",
-        center: [-50.06475055195127, -21.684262995069],
-        minZoom: 3,
+        /*
+        projection: "EPSG:22175",
+        center: [5234771.06, 5557249.73],
+        */
+        // projection: "EPSG:4326",
+        // center: [-50.06475055195127, -21.684262995069],
+        center: [-6554016.553284153, -3188341.3238312723],
+        minZoom: 2,
         maxZoom: 18,
-        zoom: 4
+        zoom: 5
       })
     })
 
@@ -169,26 +228,46 @@ export default function OpenLayersMap() {
     agregarCapa("custom_points")
     agregarCapa("custom_lines")
 
+    map.addControl(
+      new ScaleLine({
+        units: "metric"
+      })
+    )
+    createMeasureTooltip(map)
+
     DragBoxInteraction.on("boxend", (event) => {
-      const coordinates = event.target.getGeometry().getCoordinates()
-      const stringifiedPolygon = coordinates[0]
-        .map((coord) => coord.join(" "))
-        .join(",")
-      setSelectionPolygon(stringifiedPolygon)
+      const extent = DragBoxInteraction.getGeometry().getExtent()
+      const as4326 = proj.transformExtent(extent, "EPSG:3857", "EPSG:4326")
+      const stringbbox = `${as4326[0]} ${as4326[1]},${as4326[2]} ${as4326[1]},${as4326[2]} ${as4326[3]},${as4326[0]} ${as4326[3]},${as4326[0]} ${as4326[1]}`
+      setSelectionPolygon(stringbbox)
+    })
+
+    DrawLineInteraction.on("drawstart", (event) => {
+      const sketch = event.feature
+      const listener = sketch.getGeometry().on("change", function (evt) {
+        const geom = evt.target
+        const tooltipCoord = geom.getLastCoordinate()
+        const length = sphere.getLength(geom)
+        const lengthAsKm = Math.round((length / 1000) * 100) / 100 + " " + "km"
+        console.log("Length: ", lengthAsKm)
+        measureTooltipElement.innerHTML = lengthAsKm
+        measureTooltip.setPosition(tooltipCoord)
+      })
     })
 
     DrawLineInteraction.on("drawend", (event) => {
       const geometry = event.feature.getGeometry()
-      const length = geometry.getLength()
-      // console.log("Length: ", length)
+      const length = sphere.getLength(geometry)
+      const lengthAsKm = Math.round((length / 1000) * 100) / 100 + " " + "km"
+      console.log("Length: ", lengthAsKm)
       const coordinates = geometry.getCoordinates()
-      // console.log("Coordinates: ", coordinates)
       setDrawInfo((current) => ({
         ...current,
         type: TYPE_MULTILINESTRING,
         coordinates
       }))
       setModals({ ...modals, drawTarget: true })
+      createMeasureTooltip(map)
     })
   }, [map])
 
@@ -226,17 +305,16 @@ export default function OpenLayersMap() {
   }, [selectionPolygon, layers, map])
 
   function agregarCapa(nombreCapa) {
+    if (layerExists(map, nombreCapa)) return
     const layerFlags = LAYER_FLAGS.find((layer) => layer.title === nombreCapa)
     if (!layerFlags) return
-    if (layerFlags.allowVector) {
-      agregarCapaVectorial(nombreCapa)
-    } else {
-      agregarCapaImagen(nombreCapa)
-    }
+    const newLayer = layerFlags.allowVector
+      ? agregarCapaVectorial(nombreCapa)
+      : agregarCapaImagen(nombreCapa)
+    setLayers((current) => [...current, newLayer])
   }
 
   function agregarCapaImagen(nombreCapa) {
-    if (layerExists(map, nombreCapa)) return
     const layer = new ImageLayer({
       title: nombreCapa,
       source: new ImageWMS({
@@ -246,11 +324,13 @@ export default function OpenLayersMap() {
         }
       })
     })
-    setLayers((current) => [...current, layer])
+    // setLayers((current) => [...current, layer])
+    return layer
   }
 
   function agregarCapaVectorial(nombreCapa) {
-    if (layerExists(map, nombreCapa)) return
+    // const epsg = "4326"
+    const epsg = "3857"
     const source = new VectorSource({
       format: new WFS(),
       url: "/api/wfs",
@@ -259,11 +339,18 @@ export default function OpenLayersMap() {
         fetch(
           `/api/wfs?SERVICE=WFS&TYPENAME=${nombreCapa}&REQUEST=GetFeature&bbox=${extent.join(
             ","
-          )},EPSG:4326&OUTPUTFORMAT=application/json&SRSNAME=${proj}`
+          )},EPSG:${epsg}&OUTPUTFORMAT=application/json&SRSNAME=${proj}`
         )
           .then((response) => response.text())
           .then((responseText) => {
             const featuresGeoJSON = new GeoJSON().readFeatures(responseText)
+
+            // test
+            const features3857 = featuresGeoJSON.map((feature) => {
+              feature.getGeometry().transform("EPSG:4326", "EPSG:3857")
+              return feature
+            })
+
             source.addFeatures(featuresGeoJSON)
           })
           .catch((error) => {
@@ -278,7 +365,8 @@ export default function OpenLayersMap() {
       title: nombreCapa,
       source
     })
-    setLayers((current) => [...current, layer])
+    // setLayers((current) => [...current, layer])
+    return layer
   }
 
   function changeVisibility(layer) {
@@ -304,10 +392,7 @@ export default function OpenLayersMap() {
         activeLayers={layers}
         featureList={featureList}
         type={drawInfo.type}
-        onCancel={() => {
-          setModals({ ...modals, drawTarget: false })
-          // setDrawInfo({ layerName: null, type: null, coordinates: [] })
-        }}
+        onCancel={() => setModals({ ...modals, drawTarget: false })}
         onSelect={(layerName) => {
           setDrawInfo({ ...drawInfo, layerName })
           setModals({ ...modals, drawTarget: false, addFeature: true })
@@ -324,10 +409,6 @@ export default function OpenLayersMap() {
         onSuccess={() => {
           const vectorLayer = getLayerByName(map, drawInfo.layerName)
           if (drawInfo.type === TYPE_POINT) {
-            console.log(
-              `add to ${drawInfo.layerName} point`,
-              drawInfo.coordinates
-            )
             addPointToLayer(vectorLayer, drawInfo.coordinates[0])
           } else if (drawInfo.type === TYPE_MULTILINESTRING) {
             addLineToLayer(vectorLayer, drawInfo.coordinates)
@@ -351,75 +432,120 @@ export default function OpenLayersMap() {
         }}
       />
       <div className="relative w-screen h-screen">
-        <div className="absolute top-0 left-0 z-10 flex justify-center gap-2 w-full py-6">
-          <button onClick={() => setModals({ ...modals, addLayer: true })}>
-            AGREGAR CAPA
-          </button>
-          <button
-            onClick={() => {
-              const coordinates = [-58.38682204546973, -34.60515438401025]
-              const vectorLayer = getLayerByName(map, "custom_points")
-              if (!vectorLayer) return
-              vectorLayer
-                .getSource()
-                .addFeature(new Feature(new Point(coordinates)))
-            }}
-          >
-            TEST ADD POINT
-          </button>
-          <button
-            onClick={() => {
-              setLayers([])
-              map
-                .getLayers()
-                .getArray()
-                .forEach((layer) => {
-                  const properties = layer.getProperties()
-                  if (
-                    layer !== BaseTileLayer &&
-                    !properties.title.includes("custom_")
-                  ) {
-                    map.removeLayer(layer)
+        <div className="absolute top-20 left-0 z-10 flex flex-col justify-start gap-2 w-full max-w-xs px-4 py-6">
+          {showDebugOptions && (
+            <div className="flex gap-2 flex-wrap">
+              <Button
+                color="default"
+                variant="flat"
+                size="sm"
+                onClick={() => setModals({ ...modals, addLayer: true })}
+              >
+                AGREGAR CAPA
+              </Button>
+              <Button
+                color="default"
+                variant="flat"
+                size="sm"
+                onClick={() => {
+                  const coordinates = [-58.38682204546973, -34.60515438401025]
+                  const vectorLayer = getLayerByName(map, "custom_points")
+                  if (!vectorLayer) return
+                  vectorLayer
+                    .getSource()
+                    .addFeature(new Feature(new Point(coordinates)))
+                }}
+              >
+                TEST ADD POINT
+              </Button>
+              <Button
+                color="default"
+                variant="flat"
+                size="sm"
+                onClick={() => {
+                  const mantenerCapasDelUsuario = confirm(
+                    "¿Mantener las capas del usuario?"
+                  )
+                  if (!mantenerCapasDelUsuario) {
+                    setLayers([])
+                  } else {
+                    setLayers((current) =>
+                      current.filter(
+                        (layer) =>
+                          layer === BaseTileLayer ||
+                          layer.getProperties().title.includes("custom_")
+                      )
+                    )
                   }
-                })
-            }}
-          >
-            QUITAR CAPAS
-          </button>
-          <button
-            onClick={() => {
-              layers.forEach((layer) => {
-                try {
-                  const properties = layer.getProperties()
-                  const source = layer.getSource()
-                  const features = source.getFeatures()
-                  const { title, visible } = properties
-                  console.log({ title, visible, properties, features })
-                } catch (error) {
-                  console.error("Error al listar capas:", error)
-                  console.error(layer)
-                }
-              })
-            }}
-          >
-            LIST LAYERS
-          </button>
+                  map
+                    .getLayers()
+                    .getArray()
+                    .forEach((layer) => {
+                      const properties = layer.getProperties()
+                      console.log("Checking layer:", properties.title)
+                      if (
+                        layer !== BaseTileLayer &&
+                        !properties.title.includes("custom_")
+                      ) {
+                        console.log("Removing layer:", properties.title)
+                        map.removeLayer(layer)
+                      } else {
+                        console.log("Keeping layer:", properties.title)
+                      }
+                    })
+                }}
+              >
+                QUITAR CAPAS
+              </Button>
+              <Button
+                color="default"
+                variant="flat"
+                size="sm"
+                onClick={() => {
+                  layers.forEach((layer) => {
+                    try {
+                      const properties = layer.getProperties()
+                      const source = layer.getSource()
+                      const features = source.getFeatures()
+                      const { title, visible } = properties
+                      console.log({ title, visible, properties, features })
+                    } catch (error) {
+                      console.error("Error al listar capas:", error)
+                      console.error(layer)
+                    }
+                  })
+                }}
+              >
+                LIST LAYERS
+              </Button>
+            </div>
+          )}
           {layers.map((layer) => {
             const properties = layer.getProperties()
-            const { title, visible } = properties
+            const { title } = properties
+            const feature = getLayerFeature(featureList, title)
             return (
-              <Button
+              <LayerButton
                 key={title}
-                className="text-xs uppercase"
-                color="primary"
-                variant={visible ? "solid" : "flat"}
-                radius="sm"
+                layer={layer}
+                feature={feature}
                 onClick={() => changeVisibility(layer)}
-              >
-                {title}
-              </Button>
+                onDelete={(layer) => {
+                  const newLayers = layers.filter((_layer) => _layer !== layer)
+                  setLayers(newLayers)
+                }}
+              />
             )
           })}
+          <Button
+            color="default"
+            variant="flat"
+            size="sm"
+            startContent={<IconPlus className="w-4 h-4" />}
+            onClick={() => setModals({ ...modals, addLayer: true })}
+          >
+            Agregar
+          </Button>
         </div>
         <MapEvents
           map={map}
@@ -469,7 +595,6 @@ function getLayerByName(map, name) {
 
 /** * @param {number[]} coordinates */
 function addPointToLayer(vectorLayer, coordinates) {
-  /*
   // Crear la geometría del punto
   const pointGeometry = new Point(coordinates)
 
@@ -489,18 +614,19 @@ function addPointToLayer(vectorLayer, coordinates) {
 
   // Crear una característica con la geometría
   const pointFeature = new Feature({
-    geometry: pointGeometry
+    geometry: pointGeometry,
+    style: pointStyle
   })
 
   // Aplicar el estilo a la característica
   // pointFeature.setStyle(pointStyle)
   vectorLayer.getSource().addFeature(pointFeature)
-  */
-  console.log("addPointToLayer", coordinates)
+  /*
   const _pointFeature = new Feature({
     geometry: new Point(coordinates)
   })
   vectorLayer.getSource().addFeature(_pointFeature)
+  */
 }
 
 /** * @param {number[]} coordinates */

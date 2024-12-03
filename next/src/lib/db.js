@@ -14,6 +14,10 @@ const pool = new Pool({
   password: DATABASE_PASSWORD
 })
 
+function logquery(sql) {
+  // console.log("Query:", sql)
+}
+
 async function query(text, params) {
   const client = await pool.connect()
   try {
@@ -28,9 +32,24 @@ async function query(text, params) {
  * @param {string} layerName
  * @param {string} stringifiedPolygon
  */
-export async function getLayerBounds(layerName, stringifiedPolygon) {
-  const text = `SELECT * FROM ${layerName} WHERE ST_Intersects(ST_geomfromtext('POLYGON((${stringifiedPolygon}))',4326), geom)`
-  console.log("Query:", text)
+export async function getLayerFeaturesByBounds(
+  layerName,
+  stringifiedPolygon,
+  page,
+  count
+) {
+  const offset = (page - 1) * count
+  const text = `SELECT * FROM ${layerName} WHERE ST_Intersects(ST_geomfromtext('POLYGON((${stringifiedPolygon}))',4326), geom) LIMIT ${count} OFFSET ${offset}`
+  logquery("Query:", text)
+  return await query(text)
+}
+
+export async function getLayerFeaturesCountByBounds(
+  layerName,
+  stringifiedPolygon
+) {
+  const text = `SELECT COUNT(*) FROM ${layerName} WHERE ST_Intersects(ST_geomfromtext('POLYGON((${stringifiedPolygon}))',4326), geom)`
+  logquery("Query:", text)
   return await query(text)
 }
 
@@ -51,7 +70,7 @@ export async function addPointToLayer(layerName, data, coordinates) {
     : `INSERT INTO ${layerName} (NOMBRE, FUENTE, RESPONSABL, GEOM) VALUES ('${
         data.nombre ?? ""
       }', 'USER INPUT', '${data.autor ?? ""}', ${point})`
-  console.log("Query:", sql)
+  logquery("Query:", sql)
   return await query(sql)
 }
 
@@ -74,6 +93,6 @@ export async function addLineToLayer(layerName, data, coordinates) {
     sql += `'${data[key]}',`
   }
   sql += `${multiline})`
-  console.log("Query:", sql)
+  logquery("Query:", sql)
   return await query(sql)
 }

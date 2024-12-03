@@ -11,20 +11,16 @@ import {
   ModalFooter,
   ModalHeader,
   Progress,
-  Snippet,
-  Tooltip
+  Snippet
 } from "@nextui-org/react"
-import {
-  IconChevronLeft,
-  IconChevronRight,
-  IconVector,
-  IconVectorOff
-} from "@tabler/icons-react"
+import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react"
 import { useEffect, useRef, useState } from "react"
 import { MAX_LAYERS } from "../constants/layers-limits"
 import { LAYER_FLAGS } from "../data/layers"
-import { getLayers } from "../services/getlayers"
+import useKeyShortcut from "../hooks/useKeyShortcut"
 import "../types/layer-geometry"
+import { getLayerFeature } from "../utils/layer-feature"
+import ButtonGeometryType from "./ButtonGeometryType"
 
 const PAGE_SIZE = 7
 
@@ -42,6 +38,28 @@ export default function AddLayer({
   const [filteredLayers, setFilteredLayers] = useState([])
 
   const inputRef = useRef(null)
+
+  useKeyShortcut({
+    shortcutId: ["NextPage"],
+    key: "ArrowRight",
+    callback: () => {
+      if (isOpen) {
+        setPage((current) =>
+          Math.min(current + 1, Math.ceil(layers.length / PAGE_SIZE))
+        )
+      }
+    }
+  })
+
+  useKeyShortcut({
+    shortcutId: ["PreviousPage"],
+    key: "ArrowLeft",
+    callback: () => {
+      if (isOpen) {
+        setPage((current) => Math.max(current - 1, 1))
+      }
+    }
+  })
 
   useEffect(() => {
     function handleKeyDown(e) {
@@ -156,9 +174,11 @@ export default function AddLayer({
                                 const layerFlags = LAYER_FLAGS.find(
                                   (flag) => flag.title === layer.title
                                 )
-                                const layerGeometry = featureList.find(
-                                  (geometry) => geometry.title === layer.title
+                                const layerFeature = getLayerFeature(
+                                  featureList,
+                                  layer.title
                                 )
+                                const { type } = layerFeature
                                 return (
                                   <ListboxItem
                                     key={layer.title}
@@ -173,34 +193,13 @@ export default function AddLayer({
                                             hideCopyButton
                                             hideSymbol
                                           >
-                                            {layerGeometry?.type}
+                                            {type}
                                           </Snippet>
                                         )}
-                                        <Tooltip
-                                          content={
-                                            layerFlags?.allowVector
-                                              ? "Capa vectorial"
-                                              : "Para no ralentizar el mapa, esta capa solo se puede agregar como raster"
-                                          }
-                                        >
-                                          <Button
-                                            color={
-                                              layerFlags.allowVector
-                                                ? "primary"
-                                                : "danger"
-                                            }
-                                            variant="flat"
-                                            size="sm"
-                                            radius="lg"
-                                            isIconOnly
-                                          >
-                                            {layerFlags?.allowVector ? (
-                                              <IconVector className="w-4 h-4" />
-                                            ) : (
-                                              <IconVectorOff className="w-4 h-4" />
-                                            )}
-                                          </Button>
-                                        </Tooltip>
+                                        <ButtonGeometryType
+                                          type={type}
+                                          allowVector={layerFlags?.allowVector}
+                                        />
                                       </div>
                                     }
                                   >
