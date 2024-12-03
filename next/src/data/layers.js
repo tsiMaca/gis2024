@@ -5,6 +5,7 @@
 export const LAYER_FLAGS = [
   { title: "custom_points", crs: 4326, allowVector: true },
   { title: "custom_lines", crs: 4326, allowVector: true },
+  { title: "custom_polygons", crs: 4326, allowVector: true },
   { title: "actividades_agropecuarias", crs: 4326, allowVector: true },
   { title: "actividades_economicas", crs: 4326, allowVector: true },
   { title: "complejo_de_energia_ene", crs: 4326, allowVector: true },

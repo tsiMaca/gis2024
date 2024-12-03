@@ -1,7 +1,8 @@
 "use client"
 
 import { Button } from "@nextui-org/react"
-import { IconPlus } from "@tabler/icons-react"
+import { IconPlus, IconTrash } from "@tabler/icons-react"
+import ScaleLine from "ol/control/scaleline"
 import Conditions from "ol/events/condition"
 import Feature from "ol/feature"
 import GeoJSON from "ol/format/geojson"
@@ -15,21 +16,20 @@ import MouseWheelZoom from "ol/interaction/mousewheelzoom"
 import TileLayer from "ol/layer/Tile"
 import ImageLayer from "ol/layer/image"
 import VectorLayer from "ol/layer/vector"
-import ScaleLine from "ol/control/scaleline"
-import sphere from "ol/sphere"
 import LoadStrategy from "ol/loadingstrategy"
 import Map from "ol/map"
 import "ol/ol.css"
+import Overlay from "ol/overlay"
 import proj from "ol/proj"
 import ImageWMS from "ol/source/imagewms"
 import TileWMS from "ol/source/tilewms"
 import VectorSource from "ol/source/vector"
+import sphere from "ol/sphere"
 import CircleStyle from "ol/style/circle"
 import Fill from "ol/style/fill"
 import Stroke from "ol/style/stroke"
 import Style from "ol/style/style"
 import View from "ol/view"
-import Overlay from "ol/overlay"
 import proj4 from "proj4"
 import React, { useEffect, useRef, useState } from "react"
 import AddFeature from "../components/AddFeature"
@@ -42,6 +42,7 @@ import { TYPE_MULTILINESTRING, TYPE_POINT } from "../constants/geometry-types"
 import { LAYER_FLAGS } from "../data/layers"
 import useKeyShortcut from "../hooks/useKeyShortcut"
 import { getLayerFeature } from "../utils/layer-feature"
+import { LAYER_COLORS, SPECIAL_LAYER_COLORS } from "../constants/layer-colors"
 
 proj.setProj4(proj4)
 /*
@@ -124,6 +125,33 @@ const DrawLineInteraction = new Draw({
   }
 })
 
+const DrawPolygonInteraction = new Draw({
+  source: new VectorSource(),
+  type: "Polygon",
+  condition: Conditions.altKeyOnly,
+  style: (feature) => {
+    const geometryType = feature.getGeometry().getType()
+    if (geometryType === "Polygon") {
+      return new Style({
+        fill: new Fill({
+          color: "rgba(255, 255, 255, 0.2)"
+        }),
+        stroke: new Stroke({
+          color: "rgba(0, 0, 0, 0.5)",
+          lineDash: [10, 10],
+          width: 2
+        }),
+        image: new CircleStyle({
+          radius: 5,
+          stroke: new Stroke({
+            color: "rgba(0, 0, 0, 0.7)"
+          })
+        })
+      })
+    }
+  }
+})
+
 function createMeasureTooltip(map) {
   if (measureTooltipElement) {
     measureTooltipElement.remove()
@@ -148,6 +176,7 @@ export default function OpenLayersMap() {
   const [map, setMap] = useState(null)
   const [selectionPolygon, setSelectionPolygon] = useState(null)
   const [legendUrls, setLegendUrls] = useState([])
+  const [layerColors, setLayerColors] = useState([]) // [{title, color}]
   const [drawInfo, setDrawInfo] = useState({
     layerName: null,
     type: null,
@@ -161,6 +190,7 @@ export default function OpenLayersMap() {
   })
   const [showDebugOptions, setShowDebugOptions] = useState(false)
   const mapRef = useRef()
+  const nextLayerColorRef = useRef(0)
 
   useKeyShortcut({
     key: "I",
@@ -215,7 +245,6 @@ export default function OpenLayersMap() {
       })
       .filter(Boolean)
 
-    console.log("Leyendas actualizadas:", updatedLegends)
     setLegendUrls(updatedLegends)
   }, [map, layers])
 
@@ -227,7 +256,8 @@ export default function OpenLayersMap() {
         new DragPan(),
         new MouseWheelZoom(),
         DragBoxInteraction,
-        DrawLineInteraction
+        DrawLineInteraction,
+        DrawPolygonInteraction
       ],
       view: new View({
         /*
@@ -258,6 +288,7 @@ export default function OpenLayersMap() {
     // Agregar las capas de formas del usuario
     agregarCapa("custom_points")
     agregarCapa("custom_lines")
+    // agregarCapa("custom_polygons")
 
     map.addControl(
       new ScaleLine({
@@ -287,9 +318,11 @@ export default function OpenLayersMap() {
 
     DrawLineInteraction.on("drawend", (event) => {
       const geometry = event.feature.getGeometry()
-      const length = sphere.getLength(geometry)
-      const lengthAsKm = Math.round((length / 1000) * 100) / 100 + " " + "km"
       const coordinates = geometry.getCoordinates()
+      const coordsAs4326 = coordinates.map((coord) =>
+        proj.transform(coord, "EPSG:3857", "EPSG:4326")
+      )
+      /*
       setDrawInfo((current) => ({
         ...current,
         type: TYPE_MULTILINESTRING,
@@ -297,6 +330,23 @@ export default function OpenLayersMap() {
       }))
       setModals({ ...modals, drawTarget: true })
       createMeasureTooltip(map)
+      */
+    })
+
+    DrawPolygonInteraction.on("drawend", (event) => {
+      const geometry = event.feature.getGeometry()
+      const coordinates = geometry.getCoordinates()
+      const coordsAs4326 = coordinates.map((coord) =>
+        proj.transform(coord, "EPSG:3857", "EPSG:4326")
+      )
+      /*
+      setDrawInfo((current) => ({
+        ...current,
+        type: TYPE_MULTIPOLYGON,
+        coordinates
+      }))
+      setModals({ ...modals, drawTarget: true })
+      */
     })
   }, [map])
 
@@ -353,7 +403,6 @@ export default function OpenLayersMap() {
         }
       })
     })
-    // setLayers((current) => [...current, layer])
     return layer
   }
 
@@ -390,11 +439,46 @@ export default function OpenLayersMap() {
       strategy: LoadStrategy.bbox
     })
 
+    const special = SPECIAL_LAYER_COLORS.find(
+      (item) => item[0].toLowerCase() === nombreCapa.toLowerCase()
+    )
+    const color = special ? special[1] : LAYER_COLORS[nextLayerColorRef.current]
     const layer = new VectorLayer({
       title: nombreCapa,
-      source
+      source,
+      style: new Style({
+        stroke: new Stroke({
+          color,
+          width: 2
+        }),
+        image: new CircleStyle({
+          radius: 7,
+          fill: new Fill({
+            color: color + "40"
+          }),
+          stroke: new Stroke({
+            color,
+            width: 2
+          })
+        })
+      })
     })
-    // setLayers((current) => [...current, layer])
+    setLayerColors((current) => {
+      const newLayerColors = [...current]
+      const index = newLayerColors.findIndex(
+        (item) => item.title === nombreCapa
+      )
+      if (index === -1) {
+        newLayerColors.push({ title: nombreCapa, color })
+      } else {
+        newLayerColors[index].color = color
+      }
+      return newLayerColors
+    })
+    if (!special) {
+      nextLayerColorRef.current =
+        (nextLayerColorRef.current + 1) % LAYER_COLORS.length
+    }
     return layer
   }
 
@@ -404,6 +488,26 @@ export default function OpenLayersMap() {
       .find((_layer) => _layer === layer)
       ?.setVisible(!layer.getProperties().visible)
     setLayers(newLayers)
+  }
+
+  function quitarTodasLasCapas() {
+    setLayers((current) =>
+      current.filter(
+        (layer) =>
+          layer === BaseTileLayer ||
+          layer.getProperties().title.includes("custom_")
+      )
+    )
+    map
+      .getLayers()
+      .getArray()
+      .forEach((layer) => {
+        const properties = layer.getProperties()
+        if (layer !== BaseTileLayer && !properties.title.includes("custom_")) {
+          map.removeLayer(layer)
+        } else {
+        }
+      })
   }
 
   return (
@@ -461,7 +565,7 @@ export default function OpenLayersMap() {
         }}
       />
       <div className="relative w-screen h-screen">
-        <div className="absolute top-20 left-0 z-10 w-full max-w-xs px-4 py-6">
+        <div className="absolute bg-gray-100 top-20 left-0 z-10 w-full max-w-xs px-4 py-6">
           <div className="flex flex-col justify-start gap-2 mb-16">
             {showDebugOptions && (
               <div className="flex gap-2 flex-wrap">
@@ -492,35 +596,7 @@ export default function OpenLayersMap() {
                   color="default"
                   variant="flat"
                   size="sm"
-                  onClick={() => {
-                    const mantenerCapasDelUsuario = confirm(
-                      "¿Mantener las capas del usuario?"
-                    )
-                    if (!mantenerCapasDelUsuario) {
-                      setLayers([])
-                    } else {
-                      setLayers((current) =>
-                        current.filter(
-                          (layer) =>
-                            layer === BaseTileLayer ||
-                            layer.getProperties().title.includes("custom_")
-                        )
-                      )
-                    }
-                    map
-                      .getLayers()
-                      .getArray()
-                      .forEach((layer) => {
-                        const properties = layer.getProperties()
-                        if (
-                          layer !== BaseTileLayer &&
-                          !properties.title.includes("custom_")
-                        ) {
-                          map.removeLayer(layer)
-                        } else {
-                        }
-                      })
-                  }}
+                  onClick={quitarTodasLasCapas}
                 >
                   QUITAR CAPAS
                 </Button>
@@ -550,10 +626,14 @@ export default function OpenLayersMap() {
               const properties = layer.getProperties()
               const { title } = properties
               const feature = getLayerFeature(featureList, title)
+              const layerColor = layerColors.find(
+                (item) => item.title === title
+              )
               return (
                 <LayerButton
                   key={title}
                   layer={layer}
+                  layerColor={layerColor?.color}
                   feature={feature}
                   onClick={() => changeVisibility(layer)}
                   onDelete={(layer) => {
@@ -573,6 +653,15 @@ export default function OpenLayersMap() {
               onClick={() => setModals({ ...modals, addLayer: true })}
             >
               Agregar
+            </Button>
+            <Button
+              color="default"
+              variant="flat"
+              size="sm"
+              startContent={<IconTrash className="w-4 h-4" />}
+              onClick={quitarTodasLasCapas}
+            >
+              Quitar todo
             </Button>
           </div>
           {legendUrls.length > 0 && (

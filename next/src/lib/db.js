@@ -96,3 +96,28 @@ export async function addLineToLayer(layerName, data, coordinates) {
   logquery("Query:", sql)
   return await query(sql)
 }
+
+/**
+ *
+ * @param {string} layerName
+ * @param {*} data
+ * @param {number[][][]} coordinates
+ * @returns
+ */
+export async function addPolygonToLayer(layerName, data, coordinates) {
+  console.log("Coordinates:", coordinates)
+  console.log("<", typeof coordinates, ">")
+  const formatCoordinates =
+    "(" + coordinates[0].map((coord) => coord.join(" ")).join(",") + ")"
+  const multipolygon = `'MULTIPOLYGON(${formatCoordinates})'`
+  const columns = Object.keys(data)
+    .map((key) => `"${key}"`)
+    .join(",")
+  let sql = `INSERT INTO ${layerName} (${columns}, GEOM) VALUES (`
+  for (const key in data) {
+    sql += `'${data[key]}',`
+  }
+  sql += `${multipolygon})`
+  logquery("Query:", sql)
+  return await query(sql)
+}

@@ -1,39 +1,34 @@
 "use client"
 
-import { Button, Tooltip } from "@nextui-org/react"
-import {
-  IconLine,
-  IconPoint,
-  IconPolygon,
-  IconTrash
-} from "@tabler/icons-react"
-import {
-  TYPE_MULTILINESTRING,
-  TYPE_POINT,
-  TYPE_UNKNOWN
-} from "../constants/geometry-types"
-import { geometryDescription } from "../utils/geometries"
+import { Button } from "@nextui-org/react"
+import { IconTrash } from "@tabler/icons-react"
 import { LAYER_FLAGS } from "../data/layers"
 import ButtonGeometryType from "./ButtonGeometryType"
 
-export default function LayerButton({ layer, feature, onDelete, ...props }) {
+export default function LayerButton({
+  layer,
+  layerColor,
+  feature,
+  onDelete,
+  ...props
+}) {
   const properties = layer.getProperties()
   const layerFlags = LAYER_FLAGS.find((flag) => flag.id === properties.flag)
   const { title, visible } = properties
   const { type } = feature
-  const typeDescription = geometryDescription(type)
+
+  console.log("Color final de ", title, "es", layerColor)
   return (
     <div className="grid grid-cols-[1fr,32px,32px] items-center gap-1 w-full">
-      <Button
-        className="text-xs uppercase w-full max-w-xs"
-        color={visible ? "primary" : "default"}
-        variant={visible ? "solid" : "flat"}
-        size="sm"
-        radius="sm"
+      <button
+        className="inline-block rounded-md text-xs uppercase truncate hover:bg-opacity-50 w-full max-w-xs px-4 py-2"
+        style={{
+          backgroundColor: layerColor ? layerColor + "C0" : "#dfdfdf80"
+        }}
         {...props}
       >
         <span className="w-40 truncate">{title}</span>
-      </Button>
+      </button>
       <ButtonGeometryType type={type} allowVector={layerFlags?.allowVector} />
       <Button
         color="danger"

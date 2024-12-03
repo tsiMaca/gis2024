@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from "next/server"
-import { addPointToLayer, addLineToLayer } from "../../../../lib/db"
 import {
   TYPE_MULTILINESTRING,
+  TYPE_MULTIPOLYGON,
   TYPE_POINT
 } from "../../../../constants/geometry-types"
+import {
+  addLineToLayer,
+  addPointToLayer,
+  addPolygonToLayer
+} from "../../../../lib/db"
 
 /**
  *
@@ -21,4 +26,9 @@ export async function POST(request) {
     const response = await addLineToLayer(layerName, data, coordinates)
     return NextResponse.json(response)
   }
+  if (type === TYPE_MULTIPOLYGON) {
+    const response = await addPolygonToLayer(layerName, data, coordinates)
+    return NextResponse.json(response)
+  }
+  return NextResponse.json({ error: "Invalid geometry type" }, { status: 400 })
 }

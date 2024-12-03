@@ -13,7 +13,11 @@ import {
 } from "@nextui-org/react"
 import { useEffect, useState } from "react"
 import { alertmessage } from "../utils/alerts"
-import { TYPE_MULTILINESTRING, TYPE_POINT } from "../constants/geometry-types"
+import {
+  TYPE_MULTILINESTRING,
+  TYPE_MULTIPOLYGON,
+  TYPE_POINT
+} from "../constants/geometry-types"
 import { LAYER_FLAGS } from "../data/layers"
 
 export default function SelectDrawTarget({
@@ -64,6 +68,7 @@ export default function SelectDrawTarget({
                   ..._layerNames,
                   "custom_points",
                   "custom_lines"
+                  // "custom_polygons"
                 ].filter((layer) => {
                   const layerGeometry = featureList.find(
                     (geometry) => geometry.title === layer

@@ -43,6 +43,7 @@ export default function AddFeature({
     const coordsAs4326 = coordinates.map((coord) =>
       proj.transform(coord, "EPSG:3857", "EPSG:4326")
     )
+    console.log("coordsAs4326:", coordsAs4326)
     setLoading(true)
     try {
       const body = {
